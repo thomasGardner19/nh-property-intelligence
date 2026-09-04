@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: dim_municipality
+    description: "Current Census-derived municipality dimension keyed by canonical county-subdivision GEOID. One row per municipality GEOID, using the latest available ACS vintage for source-aligned identifying attributes."
+    columns:
+      - name: municipality_geoid
+        tests:
+          - not_null
+          - unique
+      - name: state_fips
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['33']
+      - name: county_fips
+        tests:
+          - not_null
+      - name: county_subdivision_fips
+        tests:
+          - not_null
+      - name: municipality_name_raw
+        tests:
+          - not_null
+      - name: latest_acs_vintage
+        tests:
+          - not_null
+
+  - name: fact_municipal_housing
+    description: "Municipality-by-ACS-vintage housing and affordability fact table derived from Census ACS."
+    columns:
+      - name: municipality_geoid
+        tests:
+          - not_null
+      - name: acs_vintage
+        tests:
+          - not_null
+      - name: owner_occupancy_rate
+        description: "Owner-occupied units divided by occupied housing units."
+      - name: vacancy_proxy_rate
+        description: "Proxy share of housing units not occupied; not a formal Census vacancy-rate measure."
+      - name: home_value_to_income_ratio
+        description: "Median owner-occupied home value divided by median household income."
+      - name: annual_rent_to_income_ratio
+        description: "Annualized median gross rent divided by median household income."
