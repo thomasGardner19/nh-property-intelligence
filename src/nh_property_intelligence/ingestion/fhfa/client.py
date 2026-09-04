@@ -1,8 +1,14 @@
 """HTTP retrieval for the FHFA annual county HPI workbook."""
+
 from __future__ import annotations
+
 import time
+
 import httpx
+
 USER_AGENT = "nh-property-intelligence/0.1"
+
+
 def fetch_workbook(url: str, client: httpx.Client, *, max_attempts: int = 3) -> bytes:
     for attempt in range(1, max_attempts + 1):
         try:
