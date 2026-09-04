@@ -60,7 +60,7 @@ The API response must also retain the geography fields returned for:
 - `county`
 - `county subdivision`
 
-The ingestion layer will preserve the ACS vintage, variable identifiers, raw geography name, margins of error, source URL, and ingestion metadata.
+The ingestion layer will preserve the ACS vintage, variable identifiers, raw geography name, margins of error, a credential-redacted reproducible source endpoint, and ingestion metadata. The exact raw-column and ingestion contracts are defined in [`data-model.md`](data-model.md) and [`../ingestion/census/README.md`](../ingestion/census/README.md).
 
 ## New Hampshire Department of Revenue Administration
 
