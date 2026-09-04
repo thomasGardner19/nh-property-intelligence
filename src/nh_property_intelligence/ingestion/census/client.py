@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import time
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode
 
@@ -67,7 +67,7 @@ def fetch_response(
                 response.raise_for_status()
             payload = response.json()
             if not isinstance(payload, list):
-                raise ValueError("Census response must be a top-level JSON array")
+                raise TypeError("Census response must be a top-level JSON array")
             return payload
         except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError) as exc:
             retryable = not isinstance(exc, httpx.HTTPStatusError) or (
