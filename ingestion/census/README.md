@@ -57,15 +57,26 @@ FIPS components accept digits of exactly 2/3/5 characters; never parse, pad, or 
 The state must be exactly `33`. `county_subdivision_geoid` is direct string concatenation and must
 match `^[0-9]{10}$`. The batch must have no duplicate `(vintage, GEOID)`.
 
-For each measure, accept only an optional leading minus followed by ASCII digits and convert with
-Python `int`. The explicit v0.1 Census special-value set is `-222222222`, `-333333333`, `-555555555`,
-`-666666666`, `-888888888`, and `-999999999`; each becomes `None` and its exact literal remains in
-`raw_payload`. These codes cover open-ended median intervals, controlled estimates, insufficient
-sample cases, unavailable/uncomparable estimates, and not-applicable values. The implementation must
-fixture-test the set against the locked vintage metadata before release. Do **not** implement a blanket
-“negative means null” rule: MOEs must be interpreted according to the source documentation. Empty/null and any recognized source null representation are handled by the
-same explicit mapping. A numeric value outside Snowflake `NUMBER(38,0)` or any unknown non-numeric
-literal is invalid. No value is imputed and null is never changed to zero.
+Sentinel coercion is field-aware and occurs before ordinary numeric parsing:
+
+- In an MOE field, Census `-555555555` or its display-form equivalent `*****` means the corresponding
+  estimate is controlled and has effectively no sampling error. Convert that typed MOE to Python `0`,
+  not `None`, while retaining the original literal in `raw_payload`.
+- Outside an MOE field, do not treat `-555555555` as an ordinary negative measure. Reject it as
+  unexpected contract drift unless a reviewed, source-documented rule is added for that field.
+- The other explicit v0.1 special values—`-222222222`, `-333333333`, `-666666666`, `-888888888`, and
+  `-999999999`—represent source-documented open-ended intervals, insufficient sample cases,
+  unavailable/uncomparable estimates, or not-applicable values. Convert them to `None` while retaining
+  the original literal in `raw_payload`.
+- Treat an empty or JSON-null measure as `None`. Any additional symbolic or numeric sentinel requires
+  a reviewed contract update supported by the locked-vintage Census documentation; do not infer its
+  meaning from being negative.
+
+After those rules, accept only an optional leading minus followed by ASCII digits and convert with
+Python `int`. A numeric value outside Snowflake `NUMBER(38,0)` or any unknown non-numeric literal is
+invalid. The implementation must fixture-test the sentinel set and its field-specific outcomes
+against the locked vintage metadata before release. No value is imputed, and only the controlled-MOE
+rule maps a source special value to zero.
 
 The row SHA-256 input is the canonical compact, sorted-key JSON object defined in the data-model
 contract. Hash source strings before typed sentinel replacement so a change between distinct source
@@ -85,7 +96,8 @@ The MVP treats the Census result as one snapshot: it never commits a partial vin
 | Duplicate natural key | Fail whole run; do not select an arbitrary winner |
 | Invalid FIPS/GEOID or wrong state | Reject the record in structured diagnostics and fail whole run |
 | Unknown non-numeric measure or numeric overflow | Reject the record in structured diagnostics and fail whole run |
-| Documented sentinel/null-like value | Preserve literal payload, set typed measure to null, count/log summary, continue |
+| Controlled-estimate MOE (`-555555555` or `*****`) | Preserve literal payload, set typed MOE to `0`, count/log summary, continue |
+| Other contracted sentinel, empty value, or JSON null | Preserve literal payload, set typed measure to null, count/log summary, continue |
 | Cross-measure inequality | Load; let dbt business-quality test warn rather than rewriting source data |
 | Failure while staging/loading or validating staged row count/keys | Roll back; fail run; leave prior vintage intact |
 | Failure during delete/insert/commit | Roll back transaction, fail run, and leave prior committed vintage intact |
@@ -93,8 +105,8 @@ The MVP treats the Census result as one snapshot: it never commits a partial vin
 “Reject” above means include GEOID/row index, field, and non-secret reason in structured error output;
 v0.1 does not need a persistent quarantine table. Because a single bad source row makes the snapshot
 incomplete, any rejected record fails the batch. Logs must contain run ID, vintage, endpoint without
-key, attempt, HTTP status, received/normalized/sentinel-null counts, staged/inserted counts, duration,
-and final outcome. Logs must not contain credentials or full response payloads.
+key, attempt, HTTP status, received/normalized/sentinel-null/controlled-MOE counts, staged/inserted
+counts, duration, and final outcome. Logs must not contain credentials or full response payloads.
 
 ## Atomic idempotent load contract
 

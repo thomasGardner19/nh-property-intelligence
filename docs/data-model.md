@@ -79,8 +79,11 @@ The row hash is SHA-256 over a deterministic UTF-8 JSON serialization (sorted ke
 separators) of the raw `NAME`, geography fields, and all 14 requested variable/value pairs, plus
 `acs_vintage` and `dataset_id`; it excludes URLs and all run timestamps/IDs. `raw_payload` preserves
 the exact API strings before sentinel conversion, while typed measure columns contain valid integers
-or SQL `NULL`. A request-level payload hash is deliberately omitted: it would be repeated on every
-row and API row ordering can create false changes. Add it once to a future run-audit table if batch
+or SQL `NULL`. For MOE fields specifically, Census `-555555555` or `*****` denotes a controlled
+estimate with effectively no sampling error, so the typed MOE is `0`; other explicitly contracted
+missing/special values become SQL `NULL`. A request-level payload hash is deliberately omitted: it
+would be repeated on every row, and API row ordering can create false changes. Add it once to a future
+run-audit table if batch
 artifact verification becomes necessary. A `record_load_status` is also omitted because only valid,
 successfully committed rows belong in this table; rejected records belong in structured logs or a
 future quarantine table.
@@ -89,7 +92,7 @@ future quarantine table.
 
 `stg_census__municipality` should receive a unique, typed, traceable source record with original
 payload available for investigation. Ingestion owns transport validation, exact field mapping,
-sentinel-to-null coercion, GEOID construction, and load metadata—not analytics.
+field-aware sentinel coercion, GEOID construction, and load metadata—not analytics.
 
 Staging should keep the descriptive warehouse names (or apply project-wide naming conventions),
 standardize the source geography label into display-ready municipality/county names, expose useful
@@ -109,11 +112,12 @@ zero, and it should not discard the raw geography name or variable-code traceabi
   tolerated and remain in `raw_payload`.
 - Response envelope, row widths, duplicate natural keys, fixed FIPS widths/digits, state `33`, and
   ten-digit derived GEOIDs are validated.
-- Each measure accepts a base-10 integer string; documented Census sentinel values become `None` in
-  typed columns while their literal values remain in `raw_payload`; other non-numeric values reject
-  the row and fail the batch.
+- Each ordinary measure accepts a base-10 integer string. In MOE fields, `-555555555` and `*****`
+  become typed `0`; the other explicitly contracted Census special values become `None`. Every source
+  literal remains in `raw_payload`, and unknown non-numeric values reject the row and fail the batch.
 - Hashing is deterministic and metadata-independent. Unit tests cover request redaction, coercion,
-  sentinel mapping, GEOID derivation, validation, and hash stability.
+  field-aware sentinel mapping (including controlled-MOE zero versus missing-value null), GEOID
+  derivation, validation, and hash stability.
 - An HTTP-client integration test uses a recorded/static fixture or mock server; a Snowflake
   integration test loads a temporary table twice and proves atomic replacement/idempotency. A
   separately marked live Census smoke test may detect upstream contract drift but must not be
