@@ -2,18 +2,7 @@ with dra_names as (
 
     select distinct
         municipality_name_raw as dra_municipality_name_raw,
-        upper(
-            trim(
-                regexp_replace(
-                    regexp_replace(municipality_name_raw, '^(Town|City) of\\s+', '', 1, 0, 'i'),
-                    '\\s+(town|city)$',
-                    '',
-                    1,
-                    0,
-                    'i'
-                )
-            )
-        ) as normalized_name
+        municipality_name_normalized as normalized_name
     from {{ ref('stg_dra__municipal_tax_rates') }}
 
 ),
@@ -23,17 +12,21 @@ census_names as (
     select
         municipality_geoid,
         municipality_name_raw as census_municipality_name_raw,
-        upper(
-            trim(
-                regexp_replace(
-                    split_part(municipality_name_raw, ',', 1),
-                    '\\s+(town|city)$',
-                    '',
-                    1,
-                    0,
-                    'i'
+        regexp_replace(
+            upper(
+                trim(
+                    regexp_replace(
+                        split_part(municipality_name_raw, ',', 1),
+                        '\\s+(town|city)$',
+                        '',
+                        1,
+                        0,
+                        'i'
+                    )
                 )
-            )
+            ),
+            '[^A-Z0-9]',
+            ''
         ) as normalized_name
     from {{ ref('dim_municipality') }}
 
@@ -46,7 +39,9 @@ automatic_candidates as (
         d.normalized_name,
         c.municipality_geoid,
         c.census_municipality_name_raw,
-        count(*) over (partition by d.dra_municipality_name_raw) as candidate_count
+        count(c.municipality_geoid) over (
+            partition by d.dra_municipality_name_raw
+        ) as candidate_count
     from dra_names d
     left join census_names c
         on d.normalized_name = c.normalized_name
@@ -68,12 +63,14 @@ resolved as (
     select
         a.dra_municipality_name_raw,
         a.normalized_name,
-        coalesce(o.municipality_geoid, case when a.candidate_count = 1 then a.municipality_geoid end)
-            as municipality_geoid,
+        coalesce(
+            o.municipality_geoid,
+            case when a.candidate_count = 1 then a.municipality_geoid end
+        ) as municipality_geoid,
         case
             when o.municipality_geoid is not null then 'override'
-            when a.candidate_count = 1 and a.municipality_geoid is not null then 'normalized_name'
-            when a.candidate_count = 0 or a.municipality_geoid is null then 'unmatched'
+            when a.candidate_count = 1 then 'normalized_name'
+            when a.candidate_count = 0 then 'unmatched'
             else 'ambiguous'
         end as match_method,
         a.candidate_count,
