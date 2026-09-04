@@ -30,14 +30,14 @@ def _row(subdivision: str = "66660"):
 
 
 class FakeCursor:
-    def __init__(self, connection: "FakeConnection") -> None:
+    def __init__(self, connection: FakeConnection) -> None:
         self.connection = connection
         self.executed: list[tuple[str, Any]] = []
         self.executemany_calls: list[tuple[str, list[tuple[Any, ...]]]] = []
         self._fetch_value = 0
         self.closed = False
 
-    def execute(self, sql: str, params: Any = None) -> "FakeCursor":
+    def execute(self, sql: str, params: Any = None) -> FakeCursor:
         self.executed.append((sql, params))
         normalized = " ".join(sql.split()).upper()
         if normalized.startswith("SELECT COUNT(*) FROM TEMP_CENSUS"):
@@ -70,7 +70,7 @@ class FakeConnection:
         self.inserted_count: int | None = None
         self.invalid_count = 0
         self.duplicate_count = 0
-        self.committed = False
+        self.commit_count = 0
         self.rolled_back = False
         self.cursor_instance = FakeCursor(self)
 
@@ -78,7 +78,7 @@ class FakeConnection:
         return self.cursor_instance
 
     def commit(self) -> None:
-        self.committed = True
+        self.commit_count += 1
 
     def rollback(self) -> None:
         self.rolled_back = True
@@ -91,7 +91,7 @@ def test_replace_vintage_stages_validates_and_commits() -> None:
 
     assert result.rows_staged == 1
     assert result.rows_inserted == 1
-    assert connection.committed is True
+    assert connection.commit_count == 2
     assert connection.rolled_back is False
     insert_sql = connection.cursor_instance.executemany_calls[0][0]
     assert "PARSE_JSON(%s)" in insert_sql
@@ -115,7 +115,7 @@ def test_replace_vintage_rolls_back_on_insert_count_mismatch() -> None:
     with pytest.raises(RuntimeError, match="Inserted row count mismatch"):
         replace_vintage([_row()], 2024, connection)
 
-    assert connection.committed is False
+    assert connection.commit_count == 1
     assert connection.rolled_back is True
 
 
@@ -126,5 +126,5 @@ def test_replace_vintage_fails_staged_validation_before_transaction() -> None:
     with pytest.raises(RuntimeError, match="failed vintage/state/key validation"):
         replace_vintage([_row()], 2024, connection)
 
-    assert connection.committed is False
+    assert connection.commit_count == 0
     assert connection.rolled_back is False
