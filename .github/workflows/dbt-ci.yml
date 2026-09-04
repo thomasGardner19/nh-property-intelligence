@@ -1,0 +1,36 @@
+name: dbt CI
+
+on:
+  pull_request:
+    paths:
+      - "dbt/**"
+      - ".github/workflows/dbt-ci.yml"
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install "dbt-snowflake>=1.8,<2.0"
+      - name: Create CI-only dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          printf '%s\n' \
+            'nh_property_intelligence:' \
+            '  target: ci' \
+            '  outputs:' \
+            '    ci:' \
+            '      type: snowflake' \
+            '      account: placeholder' \
+            '      user: placeholder' \
+            '      password: placeholder' \
+            '      role: placeholder' \
+            '      database: placeholder' \
+            '      warehouse: placeholder' \
+            '      schema: placeholder' \
+            '      threads: 1' > ~/.dbt/profiles.yml
+      - run: dbt parse --project-dir dbt/nh_property_intelligence --no-partial-parse

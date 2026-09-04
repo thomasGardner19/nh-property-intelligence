@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+.venv/
+venv/
+
+# dbt
+dbt/**/target/
+dbt/**/logs/
+dbt/**/dbt_packages/
+dbt/**/packages.yml.lock
+profiles.yml
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+
+# IDE and operating system
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs, caches, and local data
+*.log
+.cache/
+logs/
+data/
+*.csv
+*.parquet
+*.duckdb
+!dbt/**/seeds/*.csv
+
+# Power BI local artifacts
+*.pbix
+*.pbit

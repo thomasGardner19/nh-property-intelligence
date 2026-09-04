@@ -1,0 +1,1 @@
+-- TODO: Define least-privilege Snowflake roles and grants.

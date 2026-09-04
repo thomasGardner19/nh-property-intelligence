@@ -1,0 +1,19 @@
+name: nh_property_intelligence
+version: "1.0.0"
+config-version: 2
+
+profile: nh_property_intelligence
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  nh_property_intelligence:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +materialized: table
