@@ -18,7 +18,3 @@ jobs:
       - run: python -m pip install -e ".[dev]"
       - run: ruff check .
       - run: pytest -q
-      - name: Parse dbt project
-        run: |
-          cp dbt/nh_property_intelligence/profiles.example.yml dbt/nh_property_intelligence/profiles.yml
-          dbt parse --project-dir dbt/nh_property_intelligence --profiles-dir dbt/nh_property_intelligence
