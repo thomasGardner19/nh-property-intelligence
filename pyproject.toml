@@ -28,6 +28,9 @@ packages = ["src/nh_property_intelligence"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "snowflake_integration: opt-in tests that require a configured Snowflake account",
+]
 
 [tool.ruff]
 line-length = 100
