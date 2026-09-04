@@ -4,9 +4,10 @@ models:
   - name: mart_town_scorecard
     description: >-
       Power BI-ready municipality scorecard combining the latest available Census ACS housing
-      metrics with the latest available NH DRA municipal tax rates on the canonical Census
-      county-subdivision GEOID. ACS vintage and DRA tax year remain explicit because the source
-      periods are not assumed to be identical.
+      metrics, NH DRA municipal tax rates, and FHFA annual county HPI market context. ACS vintage,
+      DRA tax year, and FHFA county HPI year remain explicit because source periods are not assumed
+      to be identical. FHFA measures are county-level context and must not be interpreted as
+      municipality-level appreciation.
     columns:
       - name: municipality_geoid
         description: Canonical ten-digit Census county-subdivision GEOID.
@@ -22,6 +23,9 @@ models:
       - name: tax_year
         description: NH DRA tax year supplying municipal tax rates.
         tests: [not_null]
+      - name: county_hpi_year
+        description: Latest FHFA annual County HPI observation year used as market context.
+        tests: [not_null]
       - name: estimated_annual_property_tax_on_median_home
         description: >-
           Analytical estimate equal to ACS median owner-occupied home value multiplied by the
@@ -30,6 +34,20 @@ models:
         description: >-
           Analytical estimate of the modeled annual property tax divided by ACS median household
           income. This is a cross-source affordability indicator, not a published source measure.
+      - name: county_hpi
+        description: Latest FHFA annual County HPI level for the municipality's county.
+      - name: county_hpi_annual_change_pct
+        description: FHFA published annual county HPI change percentage; county-level context only.
+      - name: county_hpi_appreciation_1y
+        description: Derived one-year cumulative HPI appreciation for the county; not town appreciation.
+      - name: county_hpi_appreciation_3y
+        description: Derived three-year cumulative HPI appreciation for the county; not town appreciation.
+      - name: county_hpi_appreciation_5y
+        description: Derived five-year cumulative HPI appreciation for the county; not town appreciation.
+      - name: county_hpi_appreciation_10y
+        description: Derived ten-year cumulative HPI appreciation for the county; not town appreciation.
+      - name: county_hpi_cagr_5y
+        description: Derived five-year county HPI CAGR; county-level market momentum only.
       - name: dra_match_method
         description: Method used to resolve the DRA municipality name to the Census GEOID.
         tests:
