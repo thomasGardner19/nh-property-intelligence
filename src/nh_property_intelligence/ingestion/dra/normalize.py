@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -41,7 +41,7 @@ def _decimal(value: Any, field: str) -> Decimal:
     return number
 
 
-def _rate_date(value: Any) -> datetime.date:
+def _rate_date(value: Any) -> date:
     text = _require_text(value, "Date")
     for fmt in ("%m/%d/%Y", "%m/%d/%y"):
         try:
