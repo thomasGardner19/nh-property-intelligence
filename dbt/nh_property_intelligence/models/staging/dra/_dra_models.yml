@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: stg_dra__municipal_tax_rates
+    description: Source-aligned NH DRA municipal tax rates with preserved published municipality names and ingestion provenance.
+    columns:
+      - name: tax_year
+        tests: [not_null]
+      - name: municipality_name_raw
+        tests: [not_null]
+      - name: municipality_name_normalized
+        tests: [not_null]
+      - name: total_tax_rate
+        tests: [not_null]
+      - name: row_hash
+        tests: [not_null]

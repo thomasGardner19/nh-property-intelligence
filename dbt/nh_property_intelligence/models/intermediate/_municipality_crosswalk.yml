@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: int_municipality_crosswalk
+    description: Auditable resolution of published NH DRA municipality names to canonical Census county-subdivision GEOIDs.
+    columns:
+      - name: dra_municipality_name_raw
+        tests: [not_null, unique]
+      - name: normalized_name
+        tests: [not_null]
+      - name: municipality_geoid
+        description: Canonical Census county-subdivision GEOID. Null indicates unresolved entity resolution and fails a singular test.
+      - name: match_method
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['normalized_name', 'override', 'unmatched', 'ambiguous']
+      - name: candidate_count
+        tests: [not_null]

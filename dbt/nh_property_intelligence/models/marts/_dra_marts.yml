@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: fact_municipal_tax
+    description: NH DRA municipal tax rates conformed to the canonical Census municipality GEOID at municipality x tax year grain.
+    columns:
+      - name: municipality_geoid
+        tests: [not_null]
+      - name: tax_year
+        tests: [not_null]
+      - name: dra_municipality_name_raw
+        tests: [not_null]
+      - name: match_method
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['normalized_name', 'override']
+      - name: total_tax_rate
+        description: Published total property tax rate per $1,000 of assessed value.
+        tests: [not_null]
+      - name: row_hash
+        tests: [not_null]

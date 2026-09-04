@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: dra
+    database: NH_PROPERTY_INTELLIGENCE
+    schema: RAW
+    tables:
+      - name: dra_municipal_tax_rates
+        identifier: DRA_MUNICIPAL_TAX_RATES
+        description: NH DRA municipal tax rates preserved at municipality name x tax year grain.
+        columns:
+          - name: municipality_name_raw
+            tests: [not_null]
+          - name: tax_year
+            tests: [not_null]
+          - name: total_tax_rate
+            tests: [not_null]
+          - name: row_hash
+            tests: [not_null]
