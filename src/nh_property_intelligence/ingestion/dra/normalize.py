@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -43,12 +43,16 @@ def _decimal(value: Any, field: str) -> Decimal:
 
 def _rate_date(value: Any) -> date:
     text = _require_text(value, "Date")
-    for fmt in ("%m/%d/%Y", "%m/%d/%y"):
-        try:
-            return datetime.strptime(text, fmt).date()
-        except ValueError:
-            continue
-    raise ValueError(f"DRA Date has unsupported format: {value!r}")
+    parts = text.split("/")
+    if len(parts) != 3:
+        raise ValueError(f"DRA Date has unsupported format: {value!r}")
+    try:
+        month, day, year = (int(part) for part in parts)
+        if year < 100:
+            year += 2000
+        return date(year, month, day)
+    except ValueError as exc:
+        raise ValueError(f"DRA Date has unsupported format: {value!r}") from exc
 
 
 def _row_hash(raw_payload: dict[str, Any], tax_year: int) -> bytes:
