@@ -1,1 +1,3 @@
--- TODO: Define raw, staging, and analytics schemas.
+USE DATABASE NH_PROPERTY_INTELLIGENCE;
+
+CREATE SCHEMA IF NOT EXISTS RAW;
