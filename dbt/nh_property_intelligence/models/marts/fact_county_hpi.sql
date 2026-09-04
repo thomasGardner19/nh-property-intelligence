@@ -1,0 +1,22 @@
+select
+    county_fips as county_key,
+    county_fips,
+    year,
+    annual_change_pct,
+    hpi,
+    hpi_1990_base,
+    hpi_2000_base,
+    appreciation_1y,
+    appreciation_3y,
+    appreciation_5y,
+    appreciation_10y,
+    cagr_5y,
+    source_system,
+    source_dataset,
+    source_file_name,
+    source_url,
+    source_requested_at,
+    ingested_at,
+    ingestion_run_id,
+    row_hash
+from {{ ref('int_county_hpi_metrics') }}

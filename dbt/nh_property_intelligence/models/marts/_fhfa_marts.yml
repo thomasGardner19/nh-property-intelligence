@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: dim_county
+    description: Canonical New Hampshire county dimension keyed by five-digit county FIPS.
+    columns:
+      - name: county_key
+        tests: [not_null, unique]
+      - name: county_fips
+        tests: [not_null, unique]
+      - name: state_code
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['NH']
+  - name: fact_county_hpi
+    description: >-
+      Annual FHFA county HPI fact with derived market-momentum measures. These are county-level
+      metrics and must not be represented as municipality-specific appreciation.
+    columns:
+      - name: county_key
+        tests: [not_null]
+      - name: year
+        tests: [not_null]
+      - name: hpi
+        description: FHFA annual county HPI when supplied.
+      - name: appreciation_5y
+        description: Five-year cumulative county HPI change when an exact five-year prior observation exists.
+      - name: cagr_5y
+        description: Five-year compound annual county HPI growth rate when an exact prior observation exists.

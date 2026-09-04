@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  - name: fhfa
+    database: NH_PROPERTY_INTELLIGENCE
+    schema: RAW
+    tables:
+      - name: fhfa_county_hpi
+        identifier: FHFA_COUNTY_HPI
+        description: FHFA Annual County House Price Index, filtered to New Hampshire counties.
+        columns:
+          - name: county_fips
+            tests: [not_null]
+          - name: year
+            tests: [not_null]
+          - name: state_code
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['NH']
