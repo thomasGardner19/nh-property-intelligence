@@ -1,9 +1,14 @@
 """Extract source rows from the FHFA Annual County HPI XLSX workbook."""
+
 from __future__ import annotations
+
 from io import BytesIO
 from typing import Any
+
 from openpyxl import load_workbook
+
 from .contract import EXPECTED_FIELDS
+
 
 def extract_records(workbook_bytes: bytes) -> list[dict[str, Any]]:
     workbook = load_workbook(BytesIO(workbook_bytes), read_only=True, data_only=True)
