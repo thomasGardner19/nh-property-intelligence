@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: int_acs_housing_metrics
+    description: "Census municipality-level ACS housing measures with source-derived analytical ratios. Grain: one county subdivision per ACS vintage."
+    columns:
+      - name: acs_vintage
+        tests:
+          - not_null
+      - name: county_subdivision_geoid
+        tests:
+          - not_null
+      - name: home_value_to_income_ratio
+        description: "Median owner-occupied home value divided by median annual household income. Null when income is null or nonpositive."
+      - name: annual_rent_to_income_ratio
+        description: "Annualized median gross rent divided by median annual household income. Null when income is null or nonpositive."
+      - name: owner_occupancy_rate
+        description: "Owner-occupied housing units divided by occupied housing units. Null when occupied units are zero or null."
+      - name: vacancy_proxy_rate
+        description: "Unoccupied housing units divided by total housing units, derived as (total - occupied) / total. This is a proxy, not a formal vacancy-rate measure."
