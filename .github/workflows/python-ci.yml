@@ -17,5 +17,4 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[dev]"
       - run: ruff check .
-      - run: pytest --version
-      # TODO: Run the test suite after the first tests are implemented.
+      - run: pytest -q
