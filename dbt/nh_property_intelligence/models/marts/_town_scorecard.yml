@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: mart_town_scorecard
+    description: >-
+      Power BI-ready municipality scorecard combining the latest available Census ACS housing
+      metrics with the latest available NH DRA municipal tax rates on the canonical Census
+      county-subdivision GEOID. ACS vintage and DRA tax year remain explicit because the source
+      periods are not assumed to be identical.
+    columns:
+      - name: municipality_geoid
+        description: Canonical ten-digit Census county-subdivision GEOID.
+        tests:
+          - not_null
+          - unique
+      - name: municipality_name_raw
+        description: Latest Census geography name retained for traceability.
+        tests: [not_null]
+      - name: acs_vintage
+        description: ACS 5-year vintage supplying housing and income metrics.
+        tests: [not_null]
+      - name: tax_year
+        description: NH DRA tax year supplying municipal tax rates.
+        tests: [not_null]
+      - name: estimated_annual_property_tax_on_median_home
+        description: >-
+          Analytical estimate equal to ACS median owner-occupied home value multiplied by the
+          DRA total tax rate per $1,000. This is not a published DRA tax bill or parcel-level tax.
+      - name: estimated_property_tax_to_income_ratio
+        description: >-
+          Analytical estimate of the modeled annual property tax divided by ACS median household
+          income. This is a cross-source affordability indicator, not a published source measure.
+      - name: dra_match_method
+        description: Method used to resolve the DRA municipality name to the Census GEOID.
+        tests:
+          - accepted_values:
+              values: ['normalized_name', 'override']
