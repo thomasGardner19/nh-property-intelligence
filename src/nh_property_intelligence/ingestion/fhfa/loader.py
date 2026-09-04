@@ -1,19 +1,28 @@
 """Snowflake landing loader for normalized FHFA county HPI rows."""
+
 from __future__ import annotations
+
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass, fields
 from typing import Any
 from uuid import uuid4
+
 from .contract import RawCountyHpiRow
+
 TARGET_TABLE = "RAW.FHFA_COUNTY_HPI"
+
+
 @dataclass(frozen=True)
 class LoadResult:
     rows_staged: int
     rows_inserted: int
 
+
 def _columns() -> tuple[str, ...]:
     return tuple(field.name for field in fields(RawCountyHpiRow))
+
+
 def _values(row: RawCountyHpiRow) -> tuple[Any, ...]:
     values = []
     for column in _columns():
@@ -22,6 +31,8 @@ def _values(row: RawCountyHpiRow) -> tuple[Any, ...]:
             value = json.dumps(value, separators=(",", ":"), default=str)
         values.append(value)
     return tuple(values)
+
+
 def replace_all(rows: Iterable[RawCountyHpiRow], connection: Any) -> LoadResult:
     batch = list(rows)
     if not batch:
@@ -51,7 +62,9 @@ def replace_all(rows: Iterable[RawCountyHpiRow], connection: Any) -> LoadResult:
         cursor.execute("BEGIN")
         try:
             cursor.execute(f"DELETE FROM {TARGET_TABLE}")
-            cursor.execute(f"INSERT INTO {TARGET_TABLE} ({column_sql}) SELECT {column_sql} FROM {temp_table}")
+            cursor.execute(
+                f"INSERT INTO {TARGET_TABLE} ({column_sql}) SELECT {column_sql} FROM {temp_table}"
+            )
             cursor.execute(f"SELECT COUNT(*) FROM {TARGET_TABLE}")
             inserted = int(cursor.fetchone()[0])
             if inserted != len(batch):
