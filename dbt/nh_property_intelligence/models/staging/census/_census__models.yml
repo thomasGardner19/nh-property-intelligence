@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: stg_census__municipality
+    description: >-
+      Typed, source-aligned Census ACS municipality staging model. One row represents one
+      New Hampshire Census county subdivision for one ACS 5-year vintage. Analytical ratios,
+      display-name normalization, cross-source joins, and business scoring remain downstream.
+    columns:
+      - name: acs_vintage
+        description: ACS 5-year vintage year.
+        tests:
+          - not_null
+      - name: county_subdivision_geoid
+        description: Canonical 10-character Census county-subdivision GEOID.
+        tests:
+          - not_null
+      - name: state_fips
+        description: Two-character state FIPS code; must be 33 for New Hampshire.
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['33']
+      - name: county_fips
+        description: Three-character county FIPS code.
+        tests:
+          - not_null
+      - name: county_subdivision_fips
+        description: Five-character county-subdivision FIPS code.
+        tests:
+          - not_null
+      - name: geography_name_raw
+        description: Census source display name retained without normalization.
+        tests:
+          - not_null
+      - name: ingestion_run_id
+        description: Ingestion run that wrote the raw observation.
+        tests:
+          - not_null
+      - name: row_hash
+        description: Deterministic hash of the source observation, excluding load metadata.
+        tests:
+          - not_null
