@@ -36,8 +36,10 @@ def test_fetch_response_does_not_retry_nonretryable_400() -> None:
         calls += 1
         return httpx.Response(400, request=request, json={"error": "bad request"})
 
-    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
-        with pytest.raises(httpx.HTTPStatusError):
-            fetch_response(build_request(), client, base_backoff_seconds=0)
+    with (
+        httpx.Client(transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(httpx.HTTPStatusError),
+    ):
+        fetch_response(build_request(), client, base_backoff_seconds=0)
 
     assert calls == 1
