@@ -1,0 +1,1 @@
+-- TODO: Define raw, staging, and analytics schemas.
