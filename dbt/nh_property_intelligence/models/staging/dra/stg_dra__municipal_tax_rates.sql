@@ -10,7 +10,22 @@ renamed as (
     select
         tax_year,
         municipality_name_raw,
-        upper(trim(municipality_name_raw)) as municipality_name_normalized,
+        regexp_replace(
+            upper(
+                trim(
+                    regexp_replace(
+                        regexp_replace(municipality_name_raw, '^(Town|City) of\\s+', '', 1, 0, 'i'),
+                        '\\s+(town|city)$',
+                        '',
+                        1,
+                        0,
+                        'i'
+                    )
+                )
+            ),
+            '[^A-Z0-9]',
+            ''
+        ) as municipality_name_normalized,
         rate_date,
         valuation,
         valuation_including_utilities,
