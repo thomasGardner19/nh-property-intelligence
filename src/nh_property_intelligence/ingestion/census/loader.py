@@ -101,6 +101,9 @@ def replace_vintage(
         if int(cursor.fetchone()[0]) != 0:
             raise RuntimeError("Staged Census batch contains duplicate natural keys")
 
+        # Close the staging DML transaction before beginning the atomic target replacement.
+        connection.commit()
+
         cursor.execute("BEGIN")
         try:
             cursor.execute(f"DELETE FROM {TARGET_TABLE} WHERE acs_vintage = %s", (vintage,))
