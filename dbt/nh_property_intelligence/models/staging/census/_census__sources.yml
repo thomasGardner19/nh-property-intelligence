@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: census
+    database: "{{ env_var('SNOWFLAKE_DATABASE', 'NH_PROPERTY_INTELLIGENCE') }}"
+    schema: RAW
+    description: Raw Census ACS 5-year municipality data loaded by the Python ingestion pipeline.
+    tables:
+      - name: census_acs_municipality
+        identifier: CENSUS_ACS_MUNICIPALITY
+        description: One New Hampshire Census county subdivision per ACS vintage.
+        columns:
+          - name: acs_vintage
+            tests:
+              - not_null
+          - name: county_subdivision_geoid
+            tests:
+              - not_null
+          - name: state_fips
+            tests:
+              - not_null
