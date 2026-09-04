@@ -6,8 +6,8 @@ nh_property_intelligence:
       account: "{{ env_var('SNOWFLAKE_ACCOUNT', 'dummy_account') }}"
       user: "{{ env_var('SNOWFLAKE_USER', 'dummy_user') }}"
       password: "{{ env_var('SNOWFLAKE_PASSWORD', 'dummy_password') }}"
-      role: "{{ env_var('SNOWFLAKE_ROLE', 'dummy_role') }}"
-      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'dummy_warehouse') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'NHPI_ENGINEER') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'NHPI_XS') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE', 'NH_PROPERTY_INTELLIGENCE') }}"
       schema: ANALYTICS
       threads: 4
