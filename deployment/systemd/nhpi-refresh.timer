@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule NH Property Intelligence monthly refresh
+
+[Timer]
+OnCalendar=*-*-05 06:00:00 America/New_York
+Persistent=true
+RandomizedDelaySec=15m
+Unit=nhpi-refresh.service
+
+[Install]
+WantedBy=timers.target
