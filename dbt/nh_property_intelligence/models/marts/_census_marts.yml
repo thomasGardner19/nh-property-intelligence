@@ -12,7 +12,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['33']
+              arguments:
+                values: ['33']
       - name: county_fips
         tests:
           - not_null

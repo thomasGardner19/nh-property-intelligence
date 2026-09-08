@@ -2,6 +2,7 @@ with census as (
 
     select *
     from {{ ref('stg_census__municipality') }}
+    where county_subdivision_fips <> '00000'
 
 ),
 

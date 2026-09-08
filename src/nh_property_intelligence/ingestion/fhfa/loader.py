@@ -45,13 +45,22 @@ def replace_all(rows: Iterable[RawCountyHpiRow], connection: Any) -> LoadResult:
     temp_table = f"TEMP_FHFA_COUNTY_HPI_{uuid4().hex.upper()}"
     columns = _columns()
     column_sql = ", ".join(columns)
-    placeholders = ["%s"] * len(columns)
-    placeholders[columns.index("raw_payload")] = "PARSE_JSON(%s)"
+    values_sql = ", ".join(["%s"] * len(columns))
+    stage_select_sql = ", ".join(
+        "raw_payload::VARCHAR AS raw_payload" if column == "raw_payload" else column
+        for column in columns
+    )
+    target_select_sql = ", ".join(
+        "PARSE_JSON(raw_payload)" if column == "raw_payload" else column for column in columns
+    )
     cursor = connection.cursor()
     try:
-        cursor.execute(f"CREATE TEMP TABLE {temp_table} LIKE {TARGET_TABLE}")
+        cursor.execute(
+            f"CREATE TEMP TABLE {temp_table} AS "
+            f"SELECT {stage_select_sql} FROM {TARGET_TABLE} WHERE 1 = 0"
+        )
         cursor.executemany(
-            f"INSERT INTO {temp_table} ({column_sql}) VALUES ({', '.join(placeholders)})",
+            f"INSERT INTO {temp_table} ({column_sql}) VALUES ({values_sql})",
             [_values(row) for row in batch],
         )
         cursor.execute(f"SELECT COUNT(*) FROM {temp_table}")
@@ -63,7 +72,8 @@ def replace_all(rows: Iterable[RawCountyHpiRow], connection: Any) -> LoadResult:
         try:
             cursor.execute(f"DELETE FROM {TARGET_TABLE}")
             cursor.execute(
-                f"INSERT INTO {TARGET_TABLE} ({column_sql}) SELECT {column_sql} FROM {temp_table}"
+                f"INSERT INTO {TARGET_TABLE} ({column_sql}) "
+                f"SELECT {target_select_sql} FROM {temp_table}"
             )
             cursor.execute(f"SELECT COUNT(*) FROM {TARGET_TABLE}")
             inserted = int(cursor.fetchone()[0])

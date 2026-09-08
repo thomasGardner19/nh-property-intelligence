@@ -64,4 +64,4 @@ See [`docs/architecture.md`](docs/architecture.md) for the planned component bou
 
 ## Getting started
 
-Copy `.env.example` to `.env` and supply local values. Never commit `.env` or credentials. Implementation and detailed setup instructions will be added as each platform component is introduced.
+Copy `.env.example` to `.env` and supply the non-secret local identifiers. Snowflake credentials and the optional Census API key can be injected from Bitwarden at runtime; see `snowflake/README.md`. Never commit `.env` or credentials.

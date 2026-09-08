@@ -17,7 +17,7 @@ census_names as (
                 trim(
                     regexp_replace(
                         split_part(municipality_name_raw, ',', 1),
-                        '\\s+(town|city)$',
+                        '\\s+(town|city|township)$',
                         '',
                         1,
                         0,

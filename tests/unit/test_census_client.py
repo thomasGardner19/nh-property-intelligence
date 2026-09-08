@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import httpx
 import pytest
 
@@ -43,3 +45,22 @@ def test_fetch_response_does_not_retry_nonretryable_400() -> None:
         fetch_response(build_request(), client, base_backoff_seconds=0)
 
     assert calls == 1
+
+
+def test_fetch_response_uses_official_summary_files_when_keyless_api_returns_html() -> None:
+    fallback = [["NAME", "state"], ["Salem town", "33"]]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, request=request, text="<html>API key required</html>")
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(handler)) as client,
+        patch(
+            "nh_property_intelligence.ingestion.census.client._fetch_summary_response",
+            return_value=fallback,
+        ) as fetch_summary,
+    ):
+        result = fetch_response(build_request(), client)
+
+    assert result == fallback
+    fetch_summary.assert_called_once_with(client)
