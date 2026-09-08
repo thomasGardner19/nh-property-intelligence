@@ -6,7 +6,13 @@ import time
 
 import httpx
 
+# The official endpoint accepts this honest application identity. Generic HTTP
+# tool identities can receive an edge-layer 403; do not impersonate a browser.
 USER_AGENT = "nh-property-intelligence/0.1"
+REPORT_PAGE_URL = (
+    "https://www.revenue.nh.gov/about-dra/municipal-and-property-division/"
+    "municipal-and-property-reports/municipal-and-village"
+)
 
 
 def fetch_report(
@@ -25,7 +31,13 @@ def fetch_report(
         try:
             response = client.get(
                 url,
-                headers={"User-Agent": USER_AGENT},
+                headers={
+                    "User-Agent": USER_AGENT,
+                    "Accept": "application/pdf",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Referer": REPORT_PAGE_URL,
+                },
+                follow_redirects=True,
                 timeout=httpx.Timeout(30.0, connect=10.0),
             )
             if response.status_code == 429 or response.status_code >= 500:
@@ -45,8 +57,10 @@ def fetch_report(
             retry_after = None
             if isinstance(exc, httpx.HTTPStatusError):
                 retry_after = exc.response.headers.get("Retry-After")
-            delay = float(retry_after) if retry_after and retry_after.isdigit() else (
-                base_backoff_seconds * (2 ** (attempt - 1))
+            delay = (
+                float(retry_after)
+                if retry_after and retry_after.isdigit()
+                else (base_backoff_seconds * (2 ** (attempt - 1)))
             )
             time.sleep(delay)
 

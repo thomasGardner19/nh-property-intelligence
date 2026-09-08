@@ -137,13 +137,51 @@ process supervision, and overlap policy are configured. This PR adds no VPS or
 Hostinger changes, Docker changes, cron, Prefect deployment infrastructure, GitHub
 deployment workflows, notifications, or analytical features.
 
-## PR #13 local validation record (2026-09-08)
+## DRA unattended retrieval and the 403 investigation
 
-Ruff and the Python test suite passed; dbt parse passed with CI placeholder
-credentials. The live Bitwarden-backed invocation exited before starting the flow
-because this shell had no unlocked `BW_SESSION`. No RAW refresh or mart rebuild
-is claimed for this validation. A direct DRA PDF request also returned HTTP 403
-from this environment; the exact PDF link was confirmed on the official DRA
-report page in a browser. Do not substitute cached data or a different source to
-turn that into a successful live run. Repeat the live acceptance gate from an
-unlocked runtime with working source access.
+The current source is the PDF linked by the official
+[Municipal and Village District Tax Rates page](https://www.revenue.nh.gov/about-dra/municipal-and-property-division/municipal-and-property-reports/municipal-and-village):
+
+`https://www.revenue.nh.gov/sites/g/files/ehbemt736/files/documents/2025-municipal-tax-rates.pdf`
+
+On 2026-09-08, ordinary HTTPX requests to both the report page and PDF succeeded
+with the existing transparent `nh-property-intelligence/0.1` User-Agent. The PDF
+returned HTTP 200, `application/pdf`, 270,660 bytes, no redirects, and no cookies.
+Three separate fresh HTTPX sessions returned the same SHA-256:
+`db6459b6a1168cddc99759c2bdb4ba0c218b104d6d9f509f20d6977dd8a45338`.
+The production extractor and normalizer accepted 260 records for tax year 2025.
+This hash is an observation, not a pinned artifact or cache requirement.
+
+A controlled HTTPX request with its default User-Agent instead returned HTTP 403
+and an Akamai/EdgeSuite Access Denied response. curl also received 403, including
+with the application's User-Agent. Consequently the evidence identifies
+request-dependent edge filtering; it does not reveal DRA's private edge-policy
+rules or establish that User-Agent is the only factor. The original curl-based
+check did not reproduce a failure in `fetch_report` itself. No source URL change
+was necessary. The official page also lists a combined municipal/village XLSX;
+there is no reason to add a second parser while the contracted PDF works.
+
+The client preserves its honest application identity and explicitly sends PDF
+Accept, English Accept-Language, and the official report-page Referer. It follows
+ordinary redirects even with a default HTTPX client. Fresh sessions need no login,
+cookies, JavaScript, or browser. No TLS impersonation, CAPTCHA handling, browser
+fallback, cache, or rehosted copy is used. RAW `source_url` and `source_file_name`
+continue to identify the original official PDF; existing extraction and normalization
+validate the source contract. A changed schema, HTML challenge, or permanent HTTP
+403 fails loudly rather than silently substituting data. 403 is not retried.
+
+This strategy uses a normal Python HTTP client suitable for unattended execution.
+The eventual VPS must still run the same acceptance check from its own network:
+local success cannot guarantee that a publisher's edge policy accepts every
+future hosting IP. If it denies access, obtain a publisher-supported access route;
+do not conceal the client or route around the denial.
+
+Unit tests cover the exact request identity/headers, redirects, permanent 403,
+HTML instead of PDF, transient server retry, and source-schema rejection.
+
+## PR #13 live acceptance status
+
+The DRA source-only check succeeded, but is not a warehouse refresh. A complete
+Bitwarden-backed live run requires the local vault to be unlocked. Until the
+three RAW snapshots have fresh ingestion timestamps, `dbt build` succeeds, and
+`MART_TOWN_SCORECARD` is confirmed rebuilt, the live acceptance gate remains open.
