@@ -1,0 +1,22 @@
+name: Docker CI
+
+on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "deployment/**"
+      - "src/**"
+      - "pyproject.toml"
+      - ".github/workflows/docker-ci.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build refresh image
+        run: docker build -t nh-property-intelligence:test .
+      - name: Import orchestration module
+        run: docker run --rm --entrypoint python nh-property-intelligence:test -c "import nh_property_intelligence.orchestration.refresh"
