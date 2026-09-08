@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "dbt/**"
+      - "src/nh_property_intelligence/orchestration/**"
       - ".github/workflows/dbt-ci.yml"
 
 jobs:
