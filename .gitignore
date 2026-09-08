@@ -41,6 +41,9 @@ data/
 *.duckdb
 !dbt/**/seeds/*.csv
 
+# Deployment runtime state
+deployment/last-run.status
+
 # Power BI local artifacts
 *.pbix
 *.pbit
