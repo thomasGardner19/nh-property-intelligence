@@ -179,9 +179,30 @@ do not conceal the client or route around the denial.
 Unit tests cover the exact request identity/headers, redirects, permanent 403,
 HTML instead of PDF, transient server retry, and source-schema rejection.
 
-## PR #13 live acceptance status
+## PR #13 live acceptance — passed 2026-09-08
 
-The DRA source-only check succeeded, but is not a warehouse refresh. A complete
-Bitwarden-backed live run requires the local vault to be unlocked. Until the
-three RAW snapshots have fresh ingestion timestamps, `dbt build` succeeds, and
-`MART_TOWN_SCORECARD` is confirmed rebuilt, the live acceptance gate remains open.
+After local Bitwarden unlock, the real `refresh_property_intelligence` flow
+`urban-meerkat` completed successfully against Snowflake. The run began at
+2026-09-08 05:13:40 UTC; all three RAW snapshot queries confirmed every row was
+ingested after that time and each snapshot contained one distinct ingestion run ID.
+
+| RAW source | Loaded rows | Fresh rows | Ingested at (UTC) |
+| --- | ---: | ---: | --- |
+| Census ACS 2024 | 260 | 260 | 2026-09-08 05:13:58.484428 |
+| NH DRA tax year 2025 | 260 | 260 | 2026-09-08 05:14:10.803021 |
+| FHFA NH annual county series | 436 | 436 | 2026-09-08 05:14:21.898990 |
+
+FHFA extracted 106,252 national workbook records before normalizing the 436 NH
+records. DRA retrieved the official PDF directly with the documented HTTP client;
+no browser or fallback source participated in the run.
+
+`dbt build` returned 0: PASS=89, WARN=0, ERROR=0, SKIP=0 (1 seed, 6 table models,
+3 view models, and 79 data tests). `ANALYTICS.MART_TOWN_SCORECARD` contains 259 rows.
+Snowflake metadata confirmed creation at 2026-09-08 05:14:40.236 UTC and last
+alteration at 05:14:41.052 UTC, both after the refresh began. The Prefect flow
+finished in Completed state, and the subsequent RAW freshness and mart-rebuild
+assertions passed. No ingestion or dbt defects were exposed by this live run.
+
+Ruff, pytest (64 passed, 3 opt-in integration tests skipped), dbt parse, and GitHub
+Python/dbt CI passed for the implementation. The live gate is satisfied; scheduling
+and deployment remain deferred, and PR #13 has not been merged.
