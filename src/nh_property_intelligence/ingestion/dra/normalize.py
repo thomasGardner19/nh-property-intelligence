@@ -30,13 +30,15 @@ def _integer(value: Any, field: str) -> int:
     return int(number)
 
 
-def _decimal(value: Any, field: str) -> Decimal:
+def _decimal(value: Any, field: str, *, allow_negative: bool = False) -> Decimal:
     text = _require_text(value, field).replace("$", "").replace(",", "")
+    if text.startswith("(") and text.endswith(")"):
+        text = f"-{text[1:-1]}"
     try:
         number = Decimal(text)
     except InvalidOperation as exc:
         raise ValueError(f"DRA field {field!r} is not numeric: {value!r}") from exc
-    if number < 0:
+    if number < 0 and not allow_negative:
         raise ValueError(f"DRA field {field!r} cannot be negative: {value!r}")
     return number
 
@@ -95,7 +97,9 @@ def normalize_records(
             valuation_including_utilities=_integer(
                 source["Valuation Including Utilities"], "Valuation Including Utilities"
             ),
-            municipal_tax_rate=_decimal(source["Municipal Tax Rate"], "Municipal Tax Rate"),
+            municipal_tax_rate=_decimal(
+                source["Municipal Tax Rate"], "Municipal Tax Rate", allow_negative=True
+            ),
             county_tax_rate=_decimal(source["County Tax Rate"], "County Tax Rate"),
             state_education_tax_rate=_decimal(
                 source["State Education Tax Rate"], "State Education Tax Rate"

@@ -12,6 +12,7 @@ with ranked as (
             order by acs_vintage desc
         ) as row_number_latest
     from {{ ref('stg_census__municipality') }}
+    where county_subdivision_fips <> '00000'
 
 )
 

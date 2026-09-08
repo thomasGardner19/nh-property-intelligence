@@ -5,7 +5,8 @@ nh_property_intelligence:
       type: snowflake
       account: "{{ env_var('SNOWFLAKE_ACCOUNT', 'dummy_account') }}"
       user: "{{ env_var('SNOWFLAKE_USER', 'dummy_user') }}"
-      password: "{{ env_var('SNOWFLAKE_PASSWORD', 'dummy_password') }}"
+      authenticator: "{{ env_var('SNOWFLAKE_AUTHENTICATOR', 'externalbrowser') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD', '') }}"
       role: "{{ env_var('SNOWFLAKE_ROLE', 'NHPI_ENGINEER') }}"
       warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'NHPI_XS') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE', 'NH_PROPERTY_INTELLIGENCE') }}"

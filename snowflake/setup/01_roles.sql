@@ -1,7 +1,8 @@
 -- Bootstrap the project execution role and a small auto-suspending warehouse.
 -- Run this script as ACCOUNTADMIN (or an equivalent account-level admin role).
 -- After this script, grant NHPI_ENGINEER directly to your Snowflake user once:
---   GRANT ROLE NHPI_ENGINEER TO USER <YOUR_USER_NAME>;
+-- Quote the user name because Snowflake login names may be case-sensitive.
+--   GRANT ROLE NHPI_ENGINEER TO USER "<YOUR_USER_NAME>";
 
 USE ROLE ACCOUNTADMIN;
 

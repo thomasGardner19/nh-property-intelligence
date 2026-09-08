@@ -52,4 +52,5 @@ models:
         description: Method used to resolve the DRA municipality name to the Census GEOID.
         tests:
           - accepted_values:
-              values: ['normalized_name', 'override']
+              arguments:
+                values: ['normalized_name', 'override']

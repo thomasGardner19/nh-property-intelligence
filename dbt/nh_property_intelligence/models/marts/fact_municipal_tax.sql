@@ -36,3 +36,9 @@ select
 from tax t
 inner join crosswalk c
     on t.municipality_name_raw = c.dra_municipality_name_raw
+qualify row_number() over (
+    partition by c.municipality_geoid, t.tax_year
+    order by
+        case when c.match_method = 'normalized_name' then 0 else 1 end,
+        t.municipality_name_raw
+) = 1

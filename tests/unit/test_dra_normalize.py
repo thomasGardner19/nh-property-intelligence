@@ -58,6 +58,18 @@ def test_invalid_numeric_value_fails() -> None:
         normalize_records([_record(**{"Total Tax Rate": "unknown"})], _context())
 
 
+def test_negative_municipal_tax_rate_is_preserved() -> None:
+    row = normalize_records([_record(**{"Municipal Tax Rate": "-1.53"})], _context())[0]
+
+    assert row.municipal_tax_rate == Decimal("-1.53")
+
+
+def test_parenthesized_municipal_tax_rate_is_preserved_as_negative() -> None:
+    row = normalize_records([_record(**{"Municipal Tax Rate": "($4.15)"})], _context())[0]
+
+    assert row.municipal_tax_rate == Decimal("-4.15")
+
+
 def test_valuation_including_utilities_cannot_be_lower() -> None:
     with pytest.raises(ValueError, match="below base valuation"):
         normalize_records(

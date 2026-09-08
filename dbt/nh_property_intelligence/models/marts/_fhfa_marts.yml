@@ -12,7 +12,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['NH']
+              arguments:
+                values: ['NH']
   - name: fact_county_hpi
     description: >-
       Annual FHFA county HPI fact with derived market-momentum measures. These are county-level

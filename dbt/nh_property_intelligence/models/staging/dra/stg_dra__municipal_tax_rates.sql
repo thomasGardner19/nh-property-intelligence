@@ -13,13 +13,31 @@ renamed as (
         regexp_replace(
             upper(
                 trim(
-                    regexp_replace(
-                        regexp_replace(municipality_name_raw, '^(Town|City) of\\s+', '', 1, 0, 'i'),
-                        '\\s+(town|city)$',
-                        '',
-                        1,
-                        0,
-                        'i'
+                    replace(
+                        regexp_replace(
+                            regexp_replace(
+                                regexp_replace(
+                                    municipality_name_raw,
+                                    '^(Town|City) of\\s+',
+                                    '',
+                                    1,
+                                    0,
+                                    'i'
+                                ),
+                                '\\s+\\(U\\)$',
+                                '',
+                                1,
+                                0,
+                                'i'
+                            ),
+                            '\\s+(town|city)$',
+                            '',
+                            1,
+                            0,
+                            'i'
+                        ),
+                        '&',
+                        ' AND '
                     )
                 )
             ),

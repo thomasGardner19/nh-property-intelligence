@@ -94,7 +94,10 @@ def test_replace_vintage_stages_validates_and_commits() -> None:
     assert connection.commit_count == 2
     assert connection.rolled_back is False
     insert_sql = connection.cursor_instance.executemany_calls[0][0]
-    assert "PARSE_JSON(%s)" in insert_sql
+    assert "VALUES" in insert_sql
+    executed_sql = [sql for sql, _ in connection.cursor_instance.executed]
+    assert any("raw_payload::VARCHAR AS raw_payload" in sql for sql in executed_sql)
+    assert any("PARSE_JSON(raw_payload)" in sql for sql in executed_sql)
     assert connection.cursor_instance.closed is True
 
 
