@@ -1,0 +1,6 @@
+municipality_geoid,municipality_name_raw,county_hpi_county_name_raw,median_household_income,median_owner_occupied_home_value,estimated_annual_property_tax_on_median_home,home_value_to_income_ratio,estimated_property_tax_to_income_ratio,county_hpi_appreciation_5y,acs_vintage,tax_year,county_hpi_year
+3301500001,"Synthetic Alpha town, Fictional County, New Hampshire",Fictional County,100000,400000,8000,4,0.08,0.25,2023,2024,2025
+3301500002,"Synthetic Beta city, Fictional County, New Hampshire",Fictional County,125000,625000,10000,5,0.08,0.25,2023,2024,2025
+3301500003,"Synthetic Gamma town, Fictional County, New Hampshire",Fictional County,80000,240000,4800,3,0.06,-0.05,2022,2024,2025
+3301500004,"Synthetic Delta town, Fictional County, New Hampshire",Fictional County,150000,450000,9000,3,0.06,0,2023,2023,2024
+3301500005,"Synthetic Epsilon town, Fictional County, New Hampshire",Fictional County,90000,450000,9000,5,0.10,0.125,2023,2024,2025
