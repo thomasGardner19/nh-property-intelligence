@@ -1,0 +1,44 @@
+You are Codex working under the Alfred Creator BA/PM plan for the
+NH Property Intelligence public repository.
+
+Approved, exact task: NHPI GitHub issue #18.
+https://github.com/thomasGardner19/nh-property-intelligence/issues/18
+
+Goal: Build a small credential-free, source-controlled Power BI Project starter
+under powerbi/ for comparing New Hampshire municipalities using the existing
+dbt MART_TOWN_SCORECARD contract. This is a pilot developer task; do NOT work
+on Alfred infrastructure.
+
+READ FIRST:
+- powerbi/README.md
+- dbt/nh_property_intelligence/models/marts/mart_town_scorecard.sql
+- dbt/nh_property_intelligence/models/marts/_town_scorecard.yml
+- snowflake/README.md
+
+BOUNDS:
+- Modify/create files ONLY under powerbi/.
+- Do not modify database/dbt/ingestion, workflows, configs, source code outside
+  powerbi/, or any credentials.
+- Use the current 1-row-per-municipality grain keyed by municipality_geoid.
+- FHFA appreciation is COUNTY-level context, never a municipality metric.
+- Property tax is an ACS-value-based analytical estimate, not a parcel tax bill.
+- Never sum median incomes, rates, ratios, or home values across towns.
+- Use fictional synthetic data only; do not connect to Snowflake.
+- Prefer a coherent PBIP/PBIR-enhanced/TMDL project if you can validate it;
+  do not mix legacy report.json with enhanced PBIR definition/ folder.
+- If actual Desktop compatibility cannot be verified in this Linux runner,
+  state that limitation clearly; do not invent "Power BI Desktop passed."
+- No deployment, publishing, branch push, PR creation, or network changes.
+  The separate publisher job owns draft PR creation.
+
+EXPECTED:
+1. Source-controlled PBIP semantic/report starter with a town slicer,
+   comparison-ready table and clear source-year/county-HPI/tax disclaimers.
+2. Synthetic demo dataset and data-contract documentation under powerbi/.
+3. A README for opening in Power BI Desktop and a human-authorized switch
+   from demo to Snowflake Import mode.
+4. Static tests or validation commands feasible in this Linux environment.
+
+Return a concise summary of changed files, exact tests actually run, blocked
+checks, known limitations and the next QA steps for Alfred. Stop when blocked;
+do not widen scope.

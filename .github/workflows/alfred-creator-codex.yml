@@ -1,0 +1,120 @@
+name: Alfred Creator - scoped Codex development
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Reviewed NHPI issue number (MVP allowlist: 18)'
+        type: string
+        required: true
+
+run-name: "Alfred Creator: NHPI issue #${{ inputs.issue_number }}"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alfred-creator-${{ github.repository }}-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  codex:
+    if: ${{ inputs.issue_number == '18' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository without persistent GitHub credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Require reviewed task and Codex provider credential
+        shell: bash
+        env:
+          REVIEWED_ISSUE: ${{ inputs.issue_number }}
+          CODEX_KEY_PRESENT: ${{ secrets.CODEX_CREATOR_API_KEY }}
+        run: |
+          set -euo pipefail
+          test "$REVIEWED_ISSUE" = 18
+          test -s .github/alfred-creator/task-18.txt
+          if test -z "$CODEX_KEY_PRESENT"; then
+            echo 'BLOCKED: CODEX_CREATOR_API_KEY is not configured' >&2
+            exit 2
+          fi
+          cp -- .github/alfred-creator/pack_artifact.py "$RUNNER_TEMP/creator-pack.py"
+          chmod 0444 "$RUNNER_TEMP/creator-pack.py"
+
+      - name: Codex implementation in restricted workspace
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
+        with:
+          openai-api-key: ${{ secrets.CODEX_CREATOR_API_KEY }}
+          prompt-file: .github/alfred-creator/task-18.txt
+          permission-profile: ":workspace"
+          safety-strategy: drop-sudo
+
+      - name: Package only Power BI source output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/creator-pack.py" pack "$GITHUB_WORKSPACE" "$RUNNER_TEMP/nhpi-creator-18.zip"
+
+      - name: Hand off scoped artifact only (no write credential)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nhpi-creator-issue-18
+          path: ${{ runner.temp }}/nhpi-creator-18.zip
+          if-no-files-found: error
+          retention-days: 5
+
+  publish:
+    needs: codex
+    if: ${{ inputs.issue_number == '18' && needs.codex.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fresh trusted checkout - no developer credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Receive generated artifact from isolated job
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: nhpi-creator-issue-18
+          path: ${{ runner.temp }}/nhpi-creator
+
+      - name: Validate artifact paths and copy only powerbi files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/alfred-creator/pack_artifact.py unpack "$GITHUB_WORKSPACE" "$RUNNER_TEMP/nhpi-creator/nhpi-creator-18.zip"
+          if git status --porcelain --untracked-files=all | grep -vE '^(\?\?|[ MADRCU?!]{2}) powerbi/'; then
+            echo 'REFUSED: unexpected changed path outside powerbi' >&2
+            exit 1
+          fi
+
+      - name: Create draft PR only (no merge or deployment)
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676
+        with:
+          token: ${{ github.token }}
+          base: main
+          branch: alfred/creator-issue-18-${{ github.run_id }}
+          delete-branch: false
+          draft: true
+          add-paths: powerbi
+          title: "Alfred Creator: credential-free PBIP starter (issue #18)"
+          body: |
+            Supervised Alfred Creator MVP developer output.
+            Requested scope: #18, parent #17.
+            This was generated in an isolated Codex job and copied into a
+            separate publishing job after a file allowlist check.
+            No merge/deployment/Snowflake write is authorized.
+            Power BI Desktop validation is NOT claimed by this workflow.
+            Owner and Alfred BA/PM/QA review are required.
