@@ -1,0 +1,40 @@
+name: G4 Creator worker - offline validation
+on:
+  push:
+    branches:
+      - g4/alfred-codex-runner-mvp
+    paths:
+      - '.github/alfred-creator/**'
+      - 'tests/creator/**'
+      - '.github/workflows/alfred-creator-*.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/alfred-creator/**'
+      - 'tests/creator/**'
+      - '.github/workflows/alfred-creator-*.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-creator-artifact-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Check fixed artifact policy and forbidden path cases
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests/creator -p 'test_*.py' -v
+          python3 -m py_compile .github/alfred-creator/pack_artifact.py
+      - name: Confirm active workflow is NOT triggered by push
+        run: |
+          set -euo pipefail
+          grep -q 'workflow_dispatch:' .github/workflows/alfred-creator-codex.yml
+          if grep -q '^  issues:' .github/workflows/alfred-creator-codex.yml; then exit 1; fi
+          if grep -q '^  issue_comment:' .github/workflows/alfred-creator-codex.yml; then exit 1; fi
+          echo PASS_REVIEWED_MANUAL_DISPATCH_ONLY
