@@ -118,6 +118,26 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn("steps.result.outcome == 'success'", anchor["if"])
         self.assertIn("always()", anchor["if"])
 
+    def test_draft_claim_uses_attempt_branch_and_actual_snapshot_verification(self):
+        steps = self.workflow["jobs"]["publish"]["steps"]
+        pr = next(s for s in steps if s.get("id") == "pr")
+        verify = next(s for s in steps if s.get("id") == "verify_pr")
+        result = next(s for s in steps if s.get("id") == "result")
+        self.assertEqual(pr["with"]["branch"],
+                         "alfred/creator-issue-18-${{ github.run_id }}-${{ github.run_attempt }}")
+        self.assertEqual(pr["with"]["draft"], "true")
+        self.assertLess(steps.index(pr), steps.index(verify))
+        self.assertLess(steps.index(verify), steps.index(result))
+        self.assertIn("steps.pr.outcome == 'success'", verify["if"])
+        self.assertIn("steps.pr.outputs.pull-request-number != ''", verify["if"])
+        self.assertIn("steps.pr.outputs.pull-request-url != ''", verify["if"])
+        self.assertNotIn("pull-request-head-sha", verify["if"])
+        self.assertIn("steps.pr.outputs.pull-request-operation == 'created'", verify["if"])
+        self.assertIn("steps.pr.outputs.pull-request-operation == 'updated'", verify["if"])
+        self.assertIn('"$RUNNER_TEMP/publisher-tools/evidence.py" verify-pr', verify["run"])
+        self.assertEqual(result["env"]["PR_VERIFY_OUTCOME"], "${{ steps.verify_pr.outcome }}")
+        self.assertEqual(result["env"]["PR_DRAFT_VERIFIED"], "${{ steps.verify_pr.outputs.draft_verified }}")
+
     def test_all_actions_remain_commit_pinned(self):
         import re
         for job in self.workflow["jobs"].values():

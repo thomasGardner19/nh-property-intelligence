@@ -194,7 +194,7 @@ jobs:
         with:
           token: ${{ github.token }}
           base: main
-          branch: alfred/creator-issue-18-${{ github.run_id }}
+          branch: alfred/creator-issue-18-${{ github.run_id }}-${{ github.run_attempt }}
           delete-branch: false
           draft: true
           add-paths: powerbi
@@ -211,6 +211,18 @@ jobs:
             Codex narrative, not independently verified test results.
             No merge, deployment or Snowflake write is authorized.
             Owner and Alfred BA/PM/QA review are required.
+      # draft:true only drafts newly created PRs. Never redraft a human-readied
+      # PR; verify its actual state before claiming a draft in the result.
+      - name: Verify actual open draft and exact repository refs
+        id: verify_pr
+        if: ${{ steps.pr.outcome == 'success' && steps.pr.outputs.pull-request-operation != 'closed' && (steps.pr.outputs.pull-request-number != '' || steps.pr.outputs.pull-request-url != '' || steps.pr.outputs.pull-request-operation == 'created' || steps.pr.outputs.pull-request-operation == 'updated') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+          PR_URL: ${{ steps.pr.outputs.pull-request-url }}
+          PR_HEAD_SHA: ${{ steps.pr.outputs.pull-request-head-sha }}
+        run: |
+          python3 -I -B "$RUNNER_TEMP/publisher-tools/evidence.py" verify-pr
       - name: Build bounded result from trusted job and action outcomes
         id: result
         if: ${{ always() && steps.checkout.outcome == 'success' }}
@@ -226,6 +238,8 @@ jobs:
           PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
           PR_URL: ${{ steps.pr.outputs.pull-request-url }}
           PR_HEAD_SHA: ${{ steps.pr.outputs.pull-request-head-sha }}
+          PR_VERIFY_OUTCOME: ${{ steps.verify_pr.outcome }}
+          PR_DRAFT_VERIFIED: ${{ steps.verify_pr.outputs.draft_verified }}
           REPORT_ARTIFACT_ID: ${{ needs.codex.outputs.report_artifact_id }}
         run: |
           python3 -I -B "$RUNNER_TEMP/publisher-tools/evidence.py" result "$RUNNER_TEMP/result/result.json"

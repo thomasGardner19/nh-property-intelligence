@@ -1,13 +1,16 @@
 """Synthetic evidence and handoff tests. No model, network, or generated code execution."""
+import copy
 import hashlib
 import importlib.util
 import json
 import os
+import struct
 import subprocess
 import sys
 import tempfile
 import unittest
 import zipfile
+import zlib
 from pathlib import Path
 from unittest import mock
 
@@ -26,9 +29,100 @@ class EvidenceTests(unittest.TestCase):
                  "BUNDLE_SHA256": "b" * 64, "PR_OUTCOME": "success", "PR_OPERATION": "created",
                  "PR_NUMBER": "42", "PR_URL": f"https://github.com/{E.REPOSITORY}/pull/42",
                  "PR_HEAD_SHA": "c" * 40, "REPORT_ARTIFACT_ID": "456",
+                 "PR_VERIFY_OUTCOME": "success", "PR_DRAFT_VERIFIED": "true",
                  **{key.upper(): "pass" for key in E.CHECKS}}
         value.update(changes)
         return value
+
+    def pr_document(self):
+        return {"number": 42, "html_url": f"https://github.com/{E.REPOSITORY}/pull/42",
+                "draft": True, "state": "open", "merged": False, "merged_at": None,
+                "base": {"ref": "main", "sha": "a" * 40,
+                         "repo": {"full_name": E.REPOSITORY}},
+                "head": {"ref": "alfred/creator-issue-18-123-2", "sha": "c" * 40,
+                         "repo": {"full_name": E.REPOSITORY}}}
+
+    def test_actual_draft_snapshot_requires_exact_identity_and_refs(self):
+        E.verify_pr_document(self.pr_document(), self.env())
+        cases = [(('draft',), False), (('draft',), 1), (('state',), 'closed'),
+                 (('merged',), True), (('merged_at',), 'timestamp'),
+                 (('number',), 43), (('number',), True),
+                 (('html_url',), 'https://evil.test/pull/42'),
+                 (('base', 'ref'), 'feature'), (('base', 'sha'), 'd' * 40),
+                 (('base', 'repo', 'full_name'), 'other/repo'),
+                 (('head', 'ref'), 'alfred/creator-issue-18-123-1'),
+                 (('head', 'sha'), 'd' * 40), (('head', 'repo', 'full_name'), 'other/repo')]
+        for keys, value in cases:
+            with self.subTest(keys=keys, value=value):
+                document = copy.deepcopy(self.pr_document())
+                target = document
+                for key in keys[:-1]:
+                    target = target[key]
+                target[keys[-1]] = value
+                with self.assertRaises(ValueError):
+                    E.verify_pr_document(document, self.env())
+
+    def test_actual_draft_get_is_fixed_read_only_bounded_and_closes(self):
+        raw = json.dumps(self.pr_document()).encode()
+        response = mock.Mock(status=200)
+        response.read.return_value = raw
+        connection = mock.Mock()
+        connection.getresponse.return_value = response
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'outputs'
+            with (
+                mock.patch.object(E.http.client, 'HTTPSConnection', return_value=connection) as factory,
+                mock.patch.dict(os.environ, {'GITHUB_OUTPUT': str(output)}),
+            ):
+                E.verify_pr(self.env(GH_TOKEN='SYNTHETIC_ONLY'))
+            self.assertEqual(output.read_text(), 'draft_verified=true\n')
+        factory.assert_called_once_with('api.github.com', timeout=20)
+        self.assertEqual(connection.request.call_args.args,
+                         ('GET', f'/repos/{E.REPOSITORY}/pulls/42'))
+        response.read.assert_called_once_with(E.MAX_PR_RESPONSE + 1)
+        connection.close.assert_called_once_with()
+
+    def test_draft_http_errors_redirects_oversize_and_transport_fail_closed(self):
+        cases = [(302, b'{}'), (403, b'{}'), (200, b'x' * (E.MAX_PR_RESPONSE + 1)),
+                 (200, b'[]'), (200, b'not json')]
+        for status, raw in cases:
+            with self.subTest(status=status, size=len(raw)):
+                response = mock.Mock(status=status)
+                response.read.return_value = raw
+                connection = mock.Mock()
+                connection.getresponse.return_value = response
+                with (
+                    mock.patch.object(E.http.client, 'HTTPSConnection', return_value=connection),
+                    self.assertRaises(ValueError),
+                ):
+                    E.verify_pr(self.env(GH_TOKEN='SYNTHETIC_ONLY'))
+                connection.close.assert_called_once_with()
+                self.assertEqual(connection.request.call_count, 1)
+        connection = mock.Mock()
+        connection.getresponse.side_effect = TimeoutError('synthetic')
+        with (
+            mock.patch.object(E.http.client, 'HTTPSConnection', return_value=connection),
+            self.assertRaises(TimeoutError),
+        ):
+            E.verify_pr(self.env(GH_TOKEN='SYNTHETIC_ONLY'))
+        connection.close.assert_called_once_with()
+
+    def test_created_updated_and_retained_pr_require_draft_read_success(self):
+        for operation in ('created', 'updated', 'none', ''):
+            for outcome, verified in [('failure', ''), ('skipped', ''), ('success', ''),
+                                      ('success', 'false'), ('', 'true')]:
+                with self.subTest(operation=operation, outcome=outcome, verified=verified):
+                    doc = E.result_document(self.env(PR_OPERATION=operation,
+                        PR_VERIFY_OUTCOME=outcome, PR_DRAFT_VERIFIED=verified))
+                    self.assertEqual(doc['publication'], 'failed')
+                    self.assertEqual(doc['failure_code'], 'PUBLICATION_FAILED')
+                    self.assertEqual(doc['validation'], 'pass')
+                    self.assertIsNone(doc['pr'])
+            doc = E.result_document(self.env(PR_OPERATION=operation))
+            expected = 'draft_created' if operation == 'created' else 'draft_verified'
+            self.assertEqual(doc['publication'], expected)
+            self.assertEqual(doc['pr']['number'], 42)
+            self.assertEqual(doc['failure_code'], 'NONE')
 
     def bundle(self, root, entries):
         path = root / "bundle.zip"
@@ -88,6 +182,29 @@ class EvidenceTests(unittest.TestCase):
                 handle.truncate(E.MAX_ARCHIVE + 1)
             self.assertFalse(E.validate(bundle, root, report))
             self.assertEqual(json.loads(report.read_text())["validation"], "fail")
+
+    def test_forged_deflate_size_fails_validation_before_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bundle = root / "forged.zip"
+            with zipfile.ZipFile(bundle, "w", zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("powerbi/data.json", b"{}" + b" " * (16 * 1024 * 1024))
+            raw = bytearray(bundle.read_bytes())
+            central = raw.index(b"PK\x01\x02")
+            for offset in (14, central + 16):
+                struct.pack_into("<I", raw, offset, zlib.crc32(b"{}"))
+            for offset in (22, central + 24):
+                struct.pack_into("<I", raw, offset, 2)
+            bundle.write_bytes(raw)
+            self.assertLess(len(raw), 32 * 1024)
+            report = root / "validation.json"
+            self.assertFalse(E.validate(bundle, root, report))
+            doc = json.loads(report.read_text())
+            self.assertEqual(doc["validation"], "fail")
+            self.assertEqual(doc["checks"], {"archive_policy": "fail",
+                             "nonempty_changes": "not_run", "json_syntax": "not_run"})
+            self.assertEqual(doc["manifest"], [])
+            self.assertFalse((root / "powerbi").exists())
 
     def test_generated_m_content_is_never_executed(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -180,6 +297,36 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(doc['publication'], 'no_changes')
         self.assertEqual(doc['failure_code'], 'NO_CHANGES')
         self.assertIsNone(doc['pr'])
+
+    def test_pinned_action_none_without_pr_but_with_head_sha_is_no_changes(self):
+        for operation in ('none', ''):
+            with self.subTest(operation=operation):
+                doc = E.result_document(self.env(PR_OPERATION=operation, PR_NUMBER='',
+                    PR_URL='', PR_HEAD_SHA='c' * 40, PR_VERIFY_OUTCOME='skipped',
+                    PR_DRAFT_VERIFIED=''))
+                self.assertEqual(doc['publication'], 'no_changes')
+                self.assertEqual(doc['failure_code'], 'NO_CHANGES')
+                self.assertIsNone(doc['pr'])
+
+    def test_pinned_action_none_with_retained_pr_requires_actual_verification(self):
+        doc = E.result_document(self.env(PR_OPERATION='none'))
+        self.assertEqual(doc['publication'], 'draft_verified')
+        self.assertEqual(doc['pr']['number'], 42)
+        self.assertEqual(doc['failure_code'], 'NONE')
+        doc = E.result_document(self.env(PR_OPERATION='none', PR_VERIFY_OUTCOME='failure'))
+        self.assertEqual(doc['publication'], 'failed')
+        self.assertIsNone(doc['pr'])
+
+    def test_partial_retained_identity_fails_verification(self):
+        for changes in ({'PR_NUMBER': ''}, {'PR_URL': ''}):
+            with self.subTest(changes=changes):
+                env = self.env(PR_OPERATION='none', **changes)
+                with self.assertRaises(ValueError):
+                    E.verify_pr_document(self.pr_document(), env)
+                env.update(PR_VERIFY_OUTCOME='failure', PR_DRAFT_VERIFIED='')
+                doc = E.result_document(env)
+                self.assertEqual(doc['publication'], 'failed')
+                self.assertIsNone(doc['pr'])
 
     def test_result_bad_identity_and_inconsistent_checks_refused(self):
         for key, value in [('GITHUB_REF', 'refs/heads/feature'),

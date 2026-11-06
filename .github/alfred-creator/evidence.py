@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import http.client
 import importlib.util
 import json
 import os
@@ -21,6 +22,7 @@ LIMITATIONS = ["DESKTOP_NOT_RUN", "GENERATED_CODE_NOT_EXECUTED", "DOWNSTREAM_CI_
 MAX_RESULT = 16 * 1024
 MAX_ARCHIVE = 4 * 1024 * 1024
 MAX_REPORT = 8 * 1024
+MAX_PR_RESPONSE = 64 * 1024
 JSON_SUFFIXES = {".json", ".pbip", ".pbir", ".pbism"}
 
 
@@ -173,6 +175,57 @@ def identity(env):
             "run_id": values[0], "run_attempt": values[1], "source_sha": sha}
 
 
+def verify_pr_document(document, env):
+    """Verify an actual draft snapshot, never infer draft state from action output."""
+    run = identity(env)
+    number = env.get("PR_NUMBER", "")
+    head_sha = env.get("PR_HEAD_SHA", "")
+    require(re.fullmatch(r"[1-9][0-9]{0,9}", number) is not None, "BAD_PR_NUMBER")
+    require(re.fullmatch(r"[0-9a-f]{40}", head_sha) is not None, "BAD_PR_SHA")
+    url = f"https://github.com/{REPOSITORY}/pull/{number}"
+    branch = f"alfred/creator-issue-18-{run['run_id']}-{run['run_attempt']}"
+    require(type(document) is dict, "BAD_PR_DOCUMENT")
+    require(type(document.get("number")) is int and document["number"] == int(number)
+            and document.get("html_url") == url and env.get("PR_URL") == url,
+            "PR_IDENTITY_MISMATCH")
+    require(document.get("draft") is True and document.get("state") == "open"
+            and document.get("merged") is False and document.get("merged_at") is None,
+            "PR_NOT_OPEN_DRAFT")
+    base, head = document.get("base"), document.get("head")
+    require(type(base) is dict and type(head) is dict, "BAD_PR_REFS")
+    require(type(base.get("repo")) is dict and type(head.get("repo")) is dict
+            and base["repo"].get("full_name") == REPOSITORY
+            and head["repo"].get("full_name") == REPOSITORY, "PR_REPOSITORY_MISMATCH")
+    # Refuse a rebase onto a newer main commit: trusted checks used source_sha.
+    require(base.get("ref") == "main" and base.get("sha") == run["source_sha"]
+            and head.get("ref") == branch and head.get("sha") == head_sha,
+            "PR_REF_MISMATCH")
+
+
+def verify_pr(env):
+    """Fixed read-only GitHub GET; do not follow redirects or mutate draft state."""
+    identity(env)
+    number = env.get("PR_NUMBER", "")
+    require(re.fullmatch(r"[1-9][0-9]{0,9}", number) is not None, "BAD_PR_NUMBER")
+    token = env.get("GH_TOKEN", "")
+    require(bool(token), "MISSING_READ_TOKEN")
+    con = http.client.HTTPSConnection("api.github.com", timeout=20)
+    try:
+        con.request("GET", f"/repos/{REPOSITORY}/pulls/{number}", headers={
+            "Authorization": "Bearer " + token,
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "nhpi-creator-evidence/1"})
+        response = con.getresponse()
+        require(response.status == 200, "PR_READ_FAILED")
+        raw = response.read(MAX_PR_RESPONSE + 1)
+        require(0 < len(raw) <= MAX_PR_RESPONSE, "PR_RESPONSE_BUDGET")
+    finally:
+        con.close()
+    verify_pr_document(strict_json(raw), env)
+    outputs({"draft_verified": "true"})
+
+
 def result_document(env):
     doc = identity(env)
     generation = env.get("GENERATION", "unknown")
@@ -208,16 +261,22 @@ def result_document(env):
             url = env.get("PR_URL", "")
             head = env.get("PR_HEAD_SHA", "")
             operation = env.get("PR_OPERATION", "")
-            require(operation in ("", "created", "updated", "closed"), "BAD_PR_OPERATION")
-            if operation in ("", "closed"):
+            require(operation in ("", "none", "created", "updated", "closed"), "BAD_PR_OPERATION")
+            # The pinned action defaults to 'none' and emits a head SHA even
+            # when it has no PR. Only number/URL indicate retained PR identity.
+            if operation == "closed" or (operation in ("", "none") and not (number or url)):
                 publication, failure = "no_changes", "NO_CHANGES"
-            else:
+            elif (env.get("PR_VERIFY_OUTCOME") == "success"
+                  and env.get("PR_DRAFT_VERIFIED") == "true"):
                 require(re.fullmatch(r"[1-9][0-9]{0,9}", number) is not None,
                         "BAD_PR_NUMBER")
                 require(url == f"https://github.com/{REPOSITORY}/pull/{number}", "BAD_PR_URL")
                 require(re.fullmatch(r"[0-9a-f]{40}", head) is not None, "BAD_PR_SHA")
                 pr = {"number": int(number), "url": url, "head_sha": head}
-                publication, failure = "draft_created", "NONE"
+                # Both are snapshots; only the action's created operation is
+                # evidence of creation rather than a verified existing draft.
+                publication = "draft_created" if operation == "created" else "draft_verified"
+                failure = "NONE"
     report_id = env.get("REPORT_ARTIFACT_ID", "")
     report_available = bool(re.fullmatch(r"[1-9][0-9]{0,15}", report_id))
     doc.update(generation=generation, validation=validation, publication=publication,
@@ -236,6 +295,8 @@ def main():
             apply_validated(Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4])
         elif mode == "report" and len(sys.argv) == 4:
             collect_report(Path(sys.argv[2]), Path(sys.argv[3]))
+        elif mode == "verify-pr" and len(sys.argv) == 2:
+            verify_pr(os.environ)
         elif mode == "result" and len(sys.argv) == 3:
             sha = write_json(Path(sys.argv[2]), result_document(os.environ), MAX_RESULT)
             outputs({"sha256": sha})

@@ -4,6 +4,12 @@ This follow-up preserves the canonical archive policy and main-only dispatch
 binding. It does not implement issue #18's PBIP, invoke Codex, configure a key,
 merge a workflow, deploy Alfred, or authorize a paid run.
 
+The current user constraint is no charges beyond the existing monthly
+subscription. The API-key generation job below does not satisfy that constraint
+and must not be activated. A supported subscription-authenticated executor and
+its billing limits must be verified separately; these source-only safeguards
+do not establish that execution route.
+
 ## Three separate jobs
 
 1. **codex** has repository-read permissions and the dedicated model credential
@@ -22,9 +28,16 @@ merge a workflow, deploy Alfred, or authorize a paid run.
 3. **publish** starts another fresh runner without a model credential. It freezes
    its reviewed helpers from the pinned checkout before artifact handling or PR
    creation can change the worktree. It verifies the bundle hash and path policy,
-   then publishes only a draft PR if both earlier jobs succeeded. It uses
+   then requests a draft PR if both earlier jobs succeeded. It uses
    create-pull-request's number, URL, head SHA and operation outputs, not a
-   model-provided URL. A closed/no-op action is not called a newly created draft.
+   model-provided URL. The branch includes both run ID and attempt. A separate
+   bounded GitHub GET then verifies an open, unmerged draft at the exact
+   repository/base/source SHA/head branch/head SHA. `draft: true` alone is not
+   evidence of an updated PR's state. Human-readied PRs are never redrafted;
+   a failed or mismatched read produces publication failure. A retained draft
+   with the action's `none` operation is verified instead of treated as no
+   changes. A `none` operation without a PR number or URL means no changes even
+   when the action supplies a head SHA; that SHA alone is not a PR identity.
 
 All checkouts use the same dispatch `github.sha`. All three jobs require main
 and literal issue `18`. The publisher's `always()` condition allows failed-run
@@ -33,8 +46,15 @@ The suffix policy is unchanged. Deleted files are not transported by this MVP.
 
 ## What the trusted checks actually mean
 
-- `archive_policy`: the existing bounded zip/path/file-type policy accepted the
-  bundle. The input zip itself is additionally limited to 4 MiB.
+- `archive_policy`: the bounded ZIP/path/file-type policy accepted the bundle.
+  Input ZIP is limited to 4 MiB, each actual payload to 512 KiB and the total to
+  3 MiB. Raw DEFLATE is inflated with an explicit declared-size-plus-one output
+  cap, and the full stream must end at the expected boundary with exact length
+  and CRC. Forged size/CRC prefix claims cannot hide a larger payload. Only
+  stored/deflated members with matching local/central headers are accepted;
+  encryption, data descriptors and ZIP64 size markers are refused. These are
+  the simple seekable archives emitted by the reviewed packer, not every ZIP
+  variant. All members are checked before any files are written.
 - `nonempty_changes`: at least one transported file is new or differs from the
   pinned checkout. This is not evidence that the requested feature is complete.
 - `json_syntax`: `.json`, `.pbip`, `.pbir` and `.pbism` payloads decode as UTF-8
@@ -61,7 +81,11 @@ JSON has exactly these fields:
 - `source_sha`: 40 lowercase hexadecimal characters, the dispatched main commit.
 - `generation`: `success`, `failure`, `cancelled`, `skipped`, or `unknown`.
 - `validation`: `pass`, `fail`, or `not_run`.
-- `publication`: `draft_created`, `no_changes`, `failed`, or `not_run`.
+- `publication`: `draft_created`, `draft_verified`, `no_changes`, `failed`, or
+  `not_run`. `draft_created` additionally requires the action's `created`
+  operation. `draft_verified` means an updated or retained existing draft.
+  Both record state at the trusted verification read; neither guarantees that
+  the PR remains a draft after that point.
 - `bundle_sha256`: 64 lowercase hex characters only if validation passed;
   otherwise null.
 - `checks`: exactly `archive_policy`, `nonempty_changes`, `json_syntax`, each
@@ -87,8 +111,9 @@ Consistency rules:
   `VALIDATION_FAILED` when generation succeeded. `not_run` has all checks
   `not_run`. A skipped validator after successful generation is a failed pipeline,
   not successful publication.
-- Only passed validation permits publication. `draft_created` has a PR and
-  `NONE`; `no_changes` has no PR and `NO_CHANGES`; `failed` has no PR and
+- Only passed validation permits publication. `draft_created` and
+  `draft_verified` have a PR and `NONE`; `no_changes` has no PR and `NO_CHANGES`;
+  `failed` has no PR and
   `PUBLICATION_FAILED`. Prior validation remains visible after publication fails.
 
 ## Provenance: artifact names are not trust boundaries
