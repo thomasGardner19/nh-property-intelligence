@@ -5,11 +5,11 @@ import json
 import os
 import subprocess
 import sys
-from pathlib import Path
 import tempfile
 import unittest
-from unittest import mock
 import zipfile
+from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("evidence", ROOT / ".github/alfred-creator/evidence.py")
@@ -188,9 +188,8 @@ class EvidenceTests(unittest.TestCase):
                            ('GITHUB_RUN_ATTEMPT', '1\n2'), ('JSON_SYNTAX', 'not_run'),
                            ('BUNDLE_SHA256', 'bad'), ('PR_URL', 'https://evil.invalid/pull/42'),
                            ('PR_HEAD_SHA', 'bad'), ('GENERATION', 'failure')]:
-            with self.subTest(key=key):
-                with self.assertRaises(ValueError):
-                    E.result_document(self.env(**{key: value}))
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                E.result_document(self.env(**{key: value}))
 
     def test_self_report_never_promotes_failed_checks(self):
         doc = E.result_document(self.env(VALIDATOR_JOB='failure', JSON_SYNTAX='fail',
@@ -245,9 +244,8 @@ class EvidenceTests(unittest.TestCase):
         self.assertIsNone(doc['pr'])
 
     def test_write_result_budget_is_enforced(self):
-        with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaisesRegex(ValueError, 'OUTPUT_BUDGET'):
-                E.write_json(Path(directory) / 'result.json', {'text': 'x' * E.MAX_RESULT}, E.MAX_RESULT)
+        with tempfile.TemporaryDirectory() as directory, self.assertRaisesRegex(ValueError, 'OUTPUT_BUDGET'):
+            E.write_json(Path(directory) / 'result.json', {'text': 'x' * E.MAX_RESULT}, E.MAX_RESULT)
 
 
 if __name__ == '__main__':

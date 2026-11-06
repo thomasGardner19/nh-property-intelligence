@@ -1,6 +1,6 @@
 """Source-only workflow contract checks. No job dispatch or provider access."""
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 import yaml
 

@@ -5,11 +5,11 @@ import hashlib
 import importlib.util
 import json
 import os
-from pathlib import Path
 import re
 import stat
 import sys
 import tempfile
+from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SPEC = importlib.util.spec_from_file_location("artifact_policy", HERE / "pack_artifact.py")
@@ -108,9 +108,7 @@ def validate(bundle, root, report):
                 manifest.append({"path": name, "sha256": digest(data), "bytes": len(data)})
                 original = root / name
                 # Trusted checkout supplies baseline only; symlinks are not followed.
-                if original.is_symlink() or not original.is_file():
-                    changed = True
-                elif original.read_bytes() != data:
+                if original.is_symlink() or not original.is_file() or original.read_bytes() != data:
                     changed = True
             checks["nonempty_changes"] = "pass" if changed else "fail"
             checks["json_syntax"] = "pass"
@@ -119,7 +117,7 @@ def validate(bundle, root, report):
                 if source.suffix.lower() in JSON_SUFFIXES:
                     strict_json(source.read_bytes())
             passed = changed
-    except Exception:
+    except Exception:  # noqa: BLE001 - untrusted archive errors must not expose raw content
         # Preserve fixed statuses only; never expose generated text in errors.
         if checks["archive_policy"] == "not_run":
             checks["archive_policy"] = "fail"
@@ -153,7 +151,7 @@ def collect_report(source, destination):
     try:
         raw = bounded_read(source, MAX_REPORT)
         text = raw.decode("utf-8")
-    except Exception:
+    except Exception:  # noqa: BLE001 - malformed model narrative is simply unavailable
         return False
     write_json(destination, {"trust": "codex_self_report", "text": text}, 64 * 1024)
     outputs({"report_available": "true"})
@@ -244,7 +242,7 @@ def main():
         else:
             raise ValueError("BAD_ARGUMENTS")
         return 0
-    except Exception:
+    except Exception:  # noqa: BLE001 - CLI trust boundary returns only a fixed error code
         print("REFUSED_CREATOR_EVIDENCE", file=sys.stderr)
         return 1
 
