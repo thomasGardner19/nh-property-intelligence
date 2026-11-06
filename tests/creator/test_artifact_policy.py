@@ -1,9 +1,8 @@
 import importlib.util
-from pathlib import Path
-import stat
 import tempfile
 import unittest
 import zipfile
+from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[2] / ".github/alfred-creator/pack_artifact.py"
 spec = importlib.util.spec_from_file_location("pack_under_test", SOURCE)
