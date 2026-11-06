@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   codex:
-    if: ${{ inputs.issue_number == '18' }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.issue_number == '18' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     permissions:
@@ -28,6 +28,7 @@ jobs:
       - name: Checkout repository without persistent GitHub credentials
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
           fetch-depth: 1
 
@@ -71,7 +72,7 @@ jobs:
 
   publish:
     needs: codex
-    if: ${{ inputs.issue_number == '18' && needs.codex.result == 'success' }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.issue_number == '18' && needs.codex.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -81,6 +82,7 @@ jobs:
       - name: Fresh trusted checkout - no developer credentials
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
           fetch-depth: 0
 
@@ -118,3 +120,4 @@ jobs:
             No merge/deployment/Snowflake write is authorized.
             Power BI Desktop validation is NOT claimed by this workflow.
             Owner and Alfred BA/PM/QA review are required.
+

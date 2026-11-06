@@ -33,6 +33,26 @@ class ArtifactPolicyTests(unittest.TestCase):
             self.assertEqual((b/"powerbi/Report/definition.pbir").read_bytes(),
                              target.read_bytes())
 
+    def test_noncanonical_names_refused(self):
+        for name in ("./powerbi/data.json", "powerbi/./data.json",
+                     "powerbi//data.json", "powerbi/data.json/",
+                     "powerbi/data.json/."):
+            with self.subTest(name=name):
+                self.assertFalse(M.allowed(name))
+
+    def test_archive_aliases_refused_before_writes(self):
+        for alias in ("./powerbi/data.json", "powerbi/./data.json",
+                      "powerbi//data.json", "powerbi/data.json/",
+                      "powerbi/data.json/."):
+            with self.subTest(alias=alias), tempfile.TemporaryDirectory() as temp:
+                p = Path(temp)
+                with zipfile.ZipFile(p/"alias.zip", "w") as archive:
+                    archive.writestr("powerbi/data.json", "original")
+                    archive.writestr(alias, "replacement")
+                with self.assertRaises(M.Refused):
+                    M.unpack(p/"alias.zip", p)
+                self.assertFalse((p/"powerbi").exists())
+
     def test_no_source_files_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             p = Path(temp)
@@ -107,3 +127,4 @@ class ArtifactPolicyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

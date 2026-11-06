@@ -29,7 +29,9 @@ def allowed(name: str) -> bool:
     if not isinstance(name, str) or "\\" in name or "\x00" in name:
         return False
     p = PurePosixPath(name)
-    return (not p.is_absolute() and len(p.parts) >= 2
+    # PurePosixPath collapses dot segments and repeated separators. Reject
+    # those spellings so distinct zip names cannot overwrite one target.
+    return (name == p.as_posix() and not p.is_absolute() and len(p.parts) >= 2
             and p.parts[0] == "powerbi"
             and all(x not in ("", ".", "..") and not x.startswith(".")
                     for x in p.parts)
@@ -127,3 +129,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
