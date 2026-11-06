@@ -4,6 +4,7 @@ on:
     branches:
       - g4/alfred-codex-runner-mvp
       - g4/creator-canonical-artifacts
+      - g4/creator-evidence-results
     paths:
       - '.github/alfred-creator/**'
       - 'tests/creator/**'
@@ -12,6 +13,7 @@ on:
     branches:
       - main
       - g4/alfred-codex-runner-mvp
+      - g4/creator-canonical-artifacts
     paths:
       - '.github/alfred-creator/**'
       - 'tests/creator/**'
@@ -34,5 +36,5 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests/creator -p 'test_*.py' -v
-          python3 -m py_compile .github/alfred-creator/pack_artifact.py
+          python3 -m py_compile .github/alfred-creator/pack_artifact.py .github/alfred-creator/evidence.py
 
