@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Bounded artifact transport for the supervised Alfred Creator MVP.
 
 A Codex job has no repository-write credentials. It produces only allowed
@@ -10,11 +9,10 @@ No external dependencies and no subprocess calls.
 """
 from __future__ import annotations
 
-import os
-from pathlib import Path, PurePosixPath
 import stat
 import sys
 import zipfile
+from pathlib import Path, PurePosixPath
 
 MAX_FILES = 100
 MAX_FILE = 512 * 1024
@@ -97,9 +95,8 @@ def unpack(zip_path: Path, root: Path) -> int:
             # and unknown pre-existing files instead of following them.
             parent = target.parent
             for ancestor in (root, *list(parent.parents)[::-1], parent):
-                if ancestor == root or root in ancestor.parents:
-                    if ancestor.is_symlink():
-                        raise Refused("UNTRUSTED_PARENT")
+                if (ancestor == root or root in ancestor.parents) and ancestor.is_symlink():
+                    raise Refused("UNTRUSTED_PARENT")
             parent.mkdir(parents=True, exist_ok=True)
             if target.is_symlink():
                 raise Refused("TARGET_LINK")
