@@ -101,8 +101,10 @@ def unpack(zip_path: Path, root: Path) -> int:
                     if ancestor.is_symlink():
                         raise Refused("UNTRUSTED_PARENT")
             parent.mkdir(parents=True, exist_ok=True)
-            if target.exists() and target.is_symlink():
+            if target.is_symlink():
                 raise Refused("TARGET_LINK")
+            if target.exists() and not target.is_file():
+                raise Refused("UNTRUSTED_TARGET")
             target.write_bytes(raw)
             count += 1
     return count
