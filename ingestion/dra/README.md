@@ -36,3 +36,27 @@ Tax rates are retained as the DRA-published rate per $1,000 of assessed valuatio
 `raw_payload` preserves the source-string values used for normalization. The row hash includes the tax year and the locked source fields but excludes ingestion timestamps, run IDs, file names, and URLs.
 
 A load is idempotent at the tax-year snapshot level: stage and validate the complete snapshot, commit staging, then delete/insert the target tax year in one explicit transaction. A target failure rolls back to the previously committed tax-year snapshot.
+
+
+## Manually supplied source PDF
+
+The NH DRA sometimes responds with HTTP 403 to automated clients. Do **not**
+bypass the publisher's access controls or substitute unverified third-party
+data. Obtain the **2025 Municipal Tax Rates** publication through the official
+DRA reports page in a normal browser, and verify its title/year before use.
+Store the unmodified PDF outside Git, e.g. in a private local downloads folder.
+
+Set `NHPI_DRA_PDF_PATH` to its absolute path in the execution environment.
+The refresh will use that file **instead of making the DRA HTTP request**,
+but all existing PDF extraction, field checks, row normalization, source-year
+checks, and RAW snapshot replacement still apply. If the file is missing,
+oversized, or not a PDF, the refresh fails before any DRA RAW write.
+
+The log records a SHA-256 fingerprint, not the local path. The source URL
+remains the canonical published DRA PDF URL; the download was owner-supplied.
+Unset `NHPI_DRA_PDF_PATH` to restore automated download behavior.
+
+When a municipality hosts an unchanged copy of the DRA publication, also set
+`NHPI_DRA_PDF_SOURCE_URL` to the **actual municipality-hosted HTTPS PDF URL** so
+the Snowflake RAW source provenance records where the bytes were obtained, while
+`source_system` remains `NH_DRA`.

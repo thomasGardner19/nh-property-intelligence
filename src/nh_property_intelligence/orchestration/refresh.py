@@ -10,9 +10,10 @@ import sys
 from contextlib import closing, contextmanager
 from datetime import UTC, datetime
 from functools import wraps
+from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from urllib.parse import quote, quote_plus
+from urllib.parse import quote, quote_plus, urlsplit
 from uuid import uuid4
 
 import httpx
@@ -151,6 +152,44 @@ def ingest_census(vintage: int = census_contract.ACS_VINTAGE) -> dict:
     return summary("Census", len(payload) - 1, len(rows), result.rows_inserted)
 
 
+
+def _dra_provenance_url() -> str:
+    """Record the actual verified mirror URL when using a locally supplied PDF."""
+    if not os.environ.get("NHPI_DRA_PDF_PATH", "").strip():
+        return DRA_URL
+    source = os.environ.get("NHPI_DRA_PDF_SOURCE_URL", DRA_URL).strip()
+    parsed = urlsplit(source)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError("DRA local PDF provenance must be a clean HTTPS URL")
+    if parsed.query or parsed.fragment:
+        raise ValueError("DRA local PDF provenance URL must not contain query or fragment")
+    return source
+
+
+def _dra_pdf_bytes(client: httpx.Client) -> bytes:
+    """Get the official DRA PDF, optionally from an owner-provided local copy.
+
+    The local fallback is explicit and fails closed if the path or PDF is invalid.
+    It never changes the published source URL recorded for lineage.
+    """
+    local = os.environ.get("NHPI_DRA_PDF_PATH", "").strip()
+    if not local:
+        return dra_client.fetch_report(DRA_URL, client, max_attempts=1)
+
+    path = Path(local).expanduser()
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("Configured DRA local PDF is missing or is a symbolic link")
+    if not (128 <= path.stat().st_size <= 20 * 1024 * 1024):
+        raise ValueError("Configured DRA local PDF has an unexpected size")
+    pdf = path.read_bytes()
+    if not pdf.startswith(b"%PDF"):
+        raise ValueError("Configured DRA local PDF does not have a PDF signature")
+    get_run_logger().info(
+        "NH DRA: using manually supplied PDF, SHA256=%s", sha256(pdf).hexdigest()
+    )
+    return pdf
+
+
 @task(
     retries=2,
     retry_delay_seconds=[5, 20],
@@ -167,12 +206,14 @@ def ingest_dra(tax_year: int = dra_contract.TAX_YEAR) -> dict:
         settings = Settings()
         requested = datetime.now(UTC)
         with httpx.Client(follow_redirects=True) as client:
-            payload = dra_client.fetch_report(DRA_URL, client, max_attempts=1)
+            payload = _dra_pdf_bytes(client)
         records = dra_extract.extract_records(payload)
     get_run_logger().info("NH DRA rows_extracted=%s", len(records))
     with source_step("NH DRA", "normalization"):
+        source_url = _dra_provenance_url()
         context = dra_contract.RunContext(
-            str(uuid4()), DRA_URL.rsplit("/", 1)[1], DRA_URL, requested, datetime.now(UTC)
+            str(uuid4()), urlsplit(source_url).path.rsplit("/", 1)[-1],
+            source_url, requested, datetime.now(UTC)
         )
         rows = dra_normalize.normalize_records(records, context, tax_year=tax_year)
     get_run_logger().info("NH DRA rows_normalized=%s", len(rows))
