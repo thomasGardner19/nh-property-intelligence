@@ -225,3 +225,38 @@ def test_dbt_temporary_profile_removed_on_process_failure(io):
     with pytest.raises(r.RefreshError, match="configuration/build: OSError"):
         r.dbt_build()
     assert not locations[0].exists()
+
+
+def test_dra_local_pdf_fallback(io, tmp_path, monkeypatch):
+    content = b"%PDF-1.4\n" + b"x" * 256
+    path = tmp_path / "2025-municipal-tax-rates.pdf"
+    path.write_bytes(content)
+    monkeypatch.setenv("NHPI_DRA_PDF_PATH", str(path))
+    source_url = "https://www.acworthnh.net/_files/ugd/test-dra.pdf"
+    monkeypatch.setenv("NHPI_DRA_PDF_SOURCE_URL", source_url)
+    assert r.ingest_dra()["rows_loaded"] == 1
+    context = r.dra_normalize.normalize_records.call_args.args[1]
+    assert context.source_url == source_url
+    r.dra_client.fetch_report.assert_not_called()
+    r.dra_extract.extract_records.assert_called_once_with(content)
+
+
+@pytest.mark.parametrize("data", [b"not a PDF" * 20, b"%PDF-1.4\n"])
+def test_dra_local_pdf_rejects_bad_file(io, tmp_path, monkeypatch, data):
+    path = tmp_path / "untrusted.pdf"
+    path.write_bytes(data)
+    monkeypatch.setenv("NHPI_DRA_PDF_PATH", str(path))
+    with pytest.raises(r.RefreshError, match="configuration/extraction: ValueError"):
+        r.ingest_dra()
+    r.connect_snowflake.assert_not_called()
+    r.dra_client.fetch_report.assert_not_called()
+
+
+def test_dra_local_pdf_rejects_untrusted_provenance(io, tmp_path, monkeypatch):
+    path = tmp_path / "2025-municipal-tax-rates.pdf"
+    path.write_bytes(b"%PDF-1.4\n" + b"x" * 256)
+    monkeypatch.setenv("NHPI_DRA_PDF_PATH", str(path))
+    monkeypatch.setenv("NHPI_DRA_PDF_SOURCE_URL", "http://example.com/untrusted.pdf")
+    with pytest.raises(r.RefreshError, match="normalization: ValueError"):
+        r.ingest_dra()
+    r.connect_snowflake.assert_not_called()
